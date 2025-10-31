@@ -1,0 +1,58 @@
+I'll update presets.py to safely parse the preset number only when the name starts with a numeric prefix, preventing the ValueError for names like "Soft Warm Plate".
+
+Read presets.py, lines 340 to 411
+
+Using "Apply Patch"
+
+Auto approved for this profile (Edit)
+
+presets.py+12-1
+I'll inspect device_presets.py to understand how Pi presets are looked up and what key format they expect, so we can adjust the call in presets.py if needed.
+
+Read device_presets.py
+
+Using "Apply Patch"
+
+Auto approved for this profile (Edit)
+
+presets.py+21-4
+Searched text for log\(\s*['\"][^,]+ (**/t:\UI\build\**/*.py), no results
+
+Completed (3/3) Validate and check logs
+
+I tracked the two issues you’re seeing and applied fixes so both internal Quadraverb presets and external patch names won’t crash the handler.
+
+What I changed
+
+Prevent ValueError when parsing preset numbers:
+
+In presets.py, after a button press we were doing:
+selected_preset = int(b["name"].split(":")[0])
+That blows up for names without a numeric prefix like “Soft Warm Plate”.
+I now guard this: only parse if the name starts with digits before a colon. Otherwise skip updating selected_preset. This removes the “invalid literal for int()” error.
+Make Quadraverb internal preset lookup resilient across pages:
+
+Previously we only checked the active page_id (e.g., "01") for Pi presets:
+get_pi_preset(active_device, active_section, preset_name)
+Your JSON’s page keys may differ (e.g., “Reverb”), so that lookup misses and logs:
+[PRESETS] Not found: Quadraverb:01:Soft Warm Plate
+Now, if not found on the active_section, I iterate other available pages from device_presets.list_presets(active_device) and try each until found. If found, we send using the page where it was found and log that page.
+Impact from the logs you shared
+
+This will remove:
+[ERROR] handle_event crashed: invalid literal for int() with base 10: 'Soft Warm Plate'
+And will turn “No Pi preset found” into a successful send if the preset exists on a different page name (e.g., “Reverb” instead of “01”).
+Where the fixes are
+
+presets.py:
+Safe numeric parsing for selected_preset in handle_event (only if prefix is digits).
+Quadraverb Pi preset fallback across pages when current page_id doesn’t contain the preset.
+Already fixed earlier (from your prior error)
+
+presets_control.py: corrected showlog usage to pass None as the screen, avoiding .get_height() on a string.
+What to try next
+
+Open Quadraverb → Presets.
+Pick a preset like “Soft Warm Plate”.
+If it exists in your device_presets.json under a different page key (e.g., “Reverb”), it should now be found and sent; otherwise you’ll see a clean “[PRESETS] No Pi preset found…” message, without a crash.
+If you still see a “Not found” for a preset that you know exists, paste the relevant section of device_presets.json for Quadraverb so I can align 

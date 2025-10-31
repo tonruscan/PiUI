@@ -1,0 +1,12 @@
+{
+  "device_select": {
+    "buttons": [
+      { "id": 1, "img": "icons/quadverb.png", "label": "Quadraverb" },
+      { "id": 2, "img": "icons/pogolab.png", "label": "PogoLab" },
+      { "id": 3, "img": "icons/psr.png", "label": "PSR-36" },
+      { "id": 4, "img": "icons/ct660.png", "label": "CT-660" },
+      { "id": 5, "img": "icons/bmlpf.png", "label": "BMLPF" },
+      { "id": 99, "img": "icons/patchbay.png", "label": "Patchbay" }
+    ]
+  }
+}

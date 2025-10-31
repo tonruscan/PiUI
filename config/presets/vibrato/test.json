@@ -1,0 +1,17 @@
+{
+  "page_id": "vibrato",
+  "preset_name": "test",
+  "variables": {
+    "division_value": 3
+  },
+  "widget_state": {
+    "low_norm": 0.0,
+    "high_norm": 0.75,
+    "depth_norm": 0.75,
+    "fade_ms": 1203
+  },
+  "button_states": {
+    "1": 1,
+    "2": 2
+  }
+}

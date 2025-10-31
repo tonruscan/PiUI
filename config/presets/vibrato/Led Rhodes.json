@@ -1,0 +1,20 @@
+{
+  "page_id": "vibrato",
+  "preset_name": "Led Rhodes",
+  "variables": {
+    "division_value": 4
+  },
+  "widget_state": {
+    "low_norm": 0.4967,
+    "high_norm": 0.6767,
+    "depth_norm": 0.18,
+    "fade_ms": 4347
+  },
+  "button_states": {
+    "1": 1,
+    "2": 0,
+    "3": 0,
+    "4": 0,
+    "5": 0
+  }
+}

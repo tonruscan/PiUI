@@ -1,0 +1,103 @@
+{
+  "knobs": {
+    "16E6": {
+      "source_type": "device",
+      "source_name": "BMLPF",
+      "param_id": "16E6",
+      "label": "Cutoff",
+      "value": 0,
+      "range": [
+        0,
+        100
+      ]
+    },
+    "6D59": {
+      "source_type": "device",
+      "source_name": "BMLPF",
+      "param_id": "6D59",
+      "label": "Resonance",
+      "value": 0,
+      "range": [
+        0,
+        100
+      ]
+    },
+    "B70C": {
+      "source_type": "device",
+      "source_name": "BMLPF",
+      "param_id": "B70C",
+      "label": "Range Lo",
+      "value": 0,
+      "range": [
+        0,
+        100
+      ]
+    },
+    "A695": {
+      "source_type": "device",
+      "source_name": "BMLPF",
+      "param_id": "A695",
+      "label": "Range Hi",
+      "value": 0,
+      "range": [
+        0,
+        100
+      ]
+    },
+    "2593": {
+      "source_type": "device",
+      "source_name": "BMLPF",
+      "param_id": "2593",
+      "label": "Amount",
+      "value": 0,
+      "range": [
+        0,
+        100
+      ]
+    },
+    "3AE4": {
+      "source_type": "device",
+      "source_name": "BMLPF",
+      "param_id": "3AE4",
+      "label": "Mix",
+      "value": 0,
+      "range": [
+        0,
+        100
+      ]
+    },
+    "57FF": {
+      "source_type": "device",
+      "source_name": "BMLPF",
+      "param_id": "57FF",
+      "label": "Speed",
+      "value": 0,
+      "range": [
+        0,
+        100
+      ]
+    },
+    "6D5E": {
+      "source_type": "device",
+      "source_name": "BMLPF",
+      "param_id": "6D5E",
+      "label": "EMPTY",
+      "value": 0,
+      "range": [
+        0,
+        100
+      ]
+    },
+    "B49D": {
+      "source_type": "module",
+      "source_name": "vibrato",
+      "param_id": "B49D",
+      "label": "Division",
+      "value": 0,
+      "range": [
+        0,
+        5
+      ]
+    }
+  }
+}

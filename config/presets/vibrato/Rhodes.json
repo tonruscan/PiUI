@@ -1,0 +1,20 @@
+{
+  "page_id": "vibrato",
+  "preset_name": "Rhodes",
+  "variables": {
+    "division_value": 3
+  },
+  "widget_state": {
+    "low_norm": 0.3867,
+    "high_norm": 0.6667,
+    "depth_norm": 0.28,
+    "fade_ms": 1096
+  },
+  "button_states": {
+    "1": 1,
+    "2": 2,
+    "3": 0,
+    "4": 0,
+    "5": 0
+  }
+}

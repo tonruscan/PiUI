@@ -1,0 +1,169 @@
+{
+  "devices": {
+    "01": {
+      "name": "Quadraverb",
+      "default_page": "dials",
+      "announce_msg": ["90", "7B", "7F"],
+      "pages": {
+        "01": {
+          "name": "Reverb",
+          "dials": {
+            "01": { "label": "Type", "cc": 30, "range": [0, 4], "type": "raw", "page": 0, "options": ["Plate 1", "Room 1", "Chamber 1", "Hall 1", "Reverse 1"] },
+            "02": { "label": "PreDelay", "cc": 31, "range": [1, 140], "type": "ms", "page": 4 },
+            "03": { "label": "Decay", "cc": 32, "range": [0, 99], "type": "", "page": 6 },
+            "04": { "label": "Diffusion", "cc": 33, "range": [1, 9], "type": "", "page": 7 },
+            "05": { "label": "Density", "cc": 34, "range": [1, 9], "type": "", "page": 8 },
+            "06": { "label": "Lo Decay", "cc": 35, "range": [-60, 0], "type": "", "page": 9 },
+            "07": { "label": "Hi Decay", "cc": 36, "range": [-60, 0], "type": "", "page": 10 },
+            "08": { "label": "Gate", "cc": 37, "range": [0, 1], "type": "", "page": 11, "options": ["Off", "On"] }
+          }
+        },
+        "02": {
+          "name": "Delay",
+          "dials": {
+            "01": { "label": "Type", "cc": 30, "range": [0, 3], "type": "raw", "page": 0, "options": ["Mono", "Stereo", "Ping Pong"] },
+            "02": { "label": "L Time", "cc": 31, "range": [1, 400], "type": "ms", "page": 3 },
+            "03": { "label": "R Time", "cc": 32, "range": [1, 400], "type": "ms", "page": 5 },
+            "04": { "label": "L Feedback", "cc": 33, "range": [0, 99], "type": "%", "page": 4 },
+            "05": { "label": "R Feedback", "cc": 34, "range": [0, 99], "type": "%", "page": 6 },
+            "06": { "label": "EMPTY", "cc": 35, "range": 127, "type": "raw" },
+            "07": { "label": "EMPTY", "cc": 36, "range": 127, "type": "raw" },
+            "08": { "label": "EMPTY", "cc": 37, "range": 127, "type": "raw" }
+          }
+        },
+        "03": {
+          "name": "Pitch",
+          "dials": {
+            "01": { "label": "Type", "cc": 30, "range": [0, 6], "type": "raw", "page": 0, "options": ["M Chorus", "S Chorus", "M Flange", "S Flange", "Detune", "Phaser"] },
+            "02": { "label": "Shape", "cc": 31, "range": [0, 2], "type": "raw", "page": 2, "options": ["Triangle", "Square"] },
+            "03": { "label": "LFO Speed", "cc": 32, "range": [1, 99], "type": "", "page": 3 },
+            "04": { "label": "LFO Depth", "cc": 33, "range": [1, 99], "type": "", "page": 4 },
+            "05": { "label": "Pitch Fbck", "cc": 34, "range": [1, 99], "type": "%", "page": 5 },
+            "06": { "label": "EMPTY", "cc": 35, "range": 127, "type": "raw", "page": 6 },
+            "07": { "label": "EMPTY", "cc": 36, "range": 127, "type": "raw" },
+            "08": { "label": "EMPTY", "cc": 37, "range": 127, "type": "raw" }
+          }
+        },
+        "04": {
+          "name": "EQ",
+          "dials": {
+            "01": { "label": "Lo Freq", "cc": 30, "range": [20, 999], "type": "Hz", "page": 0 },
+            "02": { "label": "Lo Amp", "cc": 31, "range": [-14.00, 14.00], "type": "dB", "page": 1 },
+            "03": { "label": "Mid Freq", "cc": 32, "range": [200, 9999], "type": "Hz", "page": 2 },
+            "04": { "label": "Mid Q", "cc": 33, "range": [0.20, 2.55], "type": "Oct", "page": 3 },
+            "05": { "label": "Mid Amp", "cc": 34, "range": [-14.00, 14.00], "type": "dB", "page": 4 },
+            "06": { "label": "Hi Freq", "cc": 35, "range": [2000, 18000], "type": "Hz", "page": 5 },
+            "07": { "label": "Hi Amp", "cc": 36, "range": [-14.00, 14.00], "type": "dB", "page": 6 },
+            "08": { "label": "EMPTY", "cc": 37, "range": 127, "type": "raw" }
+          }
+        },
+        "05": {
+          "name": "Mixer",
+          "type": "mixer",
+          "faders": {
+            "01": { "label": "Reverb", "sysex_section": 1, "range": [0, 99], "type": "", "init": 50 },
+            "02": { "label": "Delay",  "sysex_section": 2, "range": [0, 99], "type": "", "init": 50 },
+            "03": { "label": "Pitch",  "sysex_section": 3, "range": [0, 99], "type": "", "init": 50 },
+            "04": { "label": "EQ",     "sysex_section": 4, "range": [0, 99], "type": "", "init": 50 }
+          }
+        }
+      }
+    },
+
+    "02": {
+      "name": "PogoLab",
+      "default_page": "presets",
+      "announce_msg": ["90", "7E", "7F"],
+      "pages": {
+        "01": {
+          "name": "Main",
+          "dials": {
+            "01": {"label": "Pitch", "range": 127},
+            "02": {"label": "Tone", "range": 127},
+            "03": {"label": "Volume", "range": 127},
+            "04": {"label": "Mod", "range": 127},
+            "05": {"label": "Delay", "range": 127},
+            "06": {"label": "Depth", "range": 127},
+            "07": {"label": "Feedback", "range": 127},
+            "08": {"label": "Mix", "range": 127}
+          }
+        }
+      }
+    },
+
+    "03": {
+      "name": "CT-660",
+      "default_page": "presets",
+      "announce_msg": ["90", "7D", "7F"],
+      "pages": {
+        "01": {
+          "name": "Main",
+          "dials": {
+            "01": {"label": "Tone Select", "range": 127},
+            "02": {"label": "Vibrato", "range": 127},
+            "03": {"label": "Chorus", "range": 127},
+            "04": {"label": "Reverb", "range": 127},
+            "05": {"label": "Balance", "range": 127},
+            "06": {"label": "Volume", "range": 127},
+            "07": {"label": "Brightness", "range": 127},
+            "08": {"label": "Sustain", "range": 127}
+          }
+        }
+      }
+    },
+
+    "04": {
+      "name": "PSR-36",
+      "default_page": "presets",
+      "announce_msg": ["90", "7F", "7F"],
+      "pages": {
+        "01": {
+          "name": "Main",
+          "dials": {
+            "01": {"label": "Voice Select", "range": 127},
+            "02": {"label": "Vibrato", "range": 127},
+            "03": {"label": "Sustain", "range": 127},
+            "04": {"label": "Brilliance", "range": 127},
+            "05": {"label": "Balance", "range": 127},
+            "06": {"label": "Volume", "range": 127},
+            "07": {"label": "Chorus", "range": 127},
+            "08": {"label": "Reverb", "range": 127}
+          }
+        }
+      }
+    },
+    "05": {
+      "name": "BMLPF",
+      "default_page": "dials",
+      "announce_msg": ["90", "71", "7F"],
+      "pages": {
+        "01": {
+          "name": "Main",
+          "dials": {
+            "01": {"label": "Cutoff", "range": 127},
+            "02": {"label": "Resonance", "range": 127},
+            "03": {"label": "Range Lo", "range": 127},
+            "04": {"label": "Range Hi", "range": 127},
+            "05": {"label": "Amount", "range": 127},
+            "06": {"label": "Mix", "range": 127},
+            "07": {"label": "Speed", "range": 127},
+            "08": {"label": "EMPTY", "range": 127}
+          }
+        },
+        "02": {
+          "name": "Stereo",
+          "dials": {
+            "01": {"label": "Cutoff", "range": 127},
+            "02": {"label": "Resonance", "range": 127},
+            "03": {"label": "Cut Offset", "range": 127},
+            "04": {"label": "Res Offset", "range": 127},
+            "05": {"label": "EMPTY", "range": 127},
+            "06": {"label": "EMPTY", "range": 127},
+            "07": {"label": "EMPTY", "range": 127},
+            "08": {"label": "EMPTY", "range": 127}
+          }
+        }
+      }
+    }
+  }
+}

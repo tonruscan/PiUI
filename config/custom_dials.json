@@ -1,0 +1,17 @@
+{
+  "vibrato_time_fraction": {
+    "label": "Division",
+    "cc": 17,
+    "range": [0, 5],
+    "type": "raw",
+    "page": 0,
+    "options": ["1", "1/2", "1/4", "1/8", "1/16", "1/32"]
+  },
+    "vibrato_depth": {
+    "label": "Depth",
+    "cc": 17,
+    "range": [0, 100],
+    "type": "raw",
+    "page": 0
+  }
+}

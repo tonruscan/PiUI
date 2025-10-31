@@ -1,0 +1,20 @@
+{
+  "page_id": "vibrato",
+  "preset_name": "quarter mid",
+  "variables": {
+    "division_value": 2
+  },
+  "widget_state": {
+    "low_norm": 0.43,
+    "high_norm": 0.5633,
+    "depth_norm": 0.1333,
+    "fade_ms": 705
+  },
+  "button_states": {
+    "1": 1,
+    "2": 2,
+    "3": 0,
+    "4": 0,
+    "5": 0
+  }
+}

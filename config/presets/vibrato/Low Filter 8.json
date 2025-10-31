@@ -1,0 +1,20 @@
+{
+  "page_id": "vibrato",
+  "preset_name": "Low Filter 8",
+  "variables": {
+    "division_value": 3
+  },
+  "widget_state": {
+    "low_norm": 0.0,
+    "high_norm": 0.3033,
+    "depth_norm": 0.3033,
+    "fade_ms": 1001
+  },
+  "button_states": {
+    "1": 1,
+    "2": 0,
+    "3": 0,
+    "4": 0,
+    "5": 0
+  }
+}

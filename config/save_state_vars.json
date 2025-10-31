@@ -1,0 +1,49 @@
+{
+  "_comment": "Maps pages/modules to their saveable state variables for the preset system",
+  "_structure": {
+    "page_id": {
+      "variables": ["list of variable names to save/restore"],
+      "widget_state": ["list of widget-specific state attributes"],
+      "registry_slots": ["list of registry slot IDs to include"]
+    }
+  },
+  
+  "vibrato": {
+    "variables": [
+      "division_value",
+      "is_on",
+      "current_hz"
+    ],
+    "widget_state": [
+      "a_y",
+      "b_x",
+      "b_y"
+    ],
+    "registry_slots": [
+      "01",
+      "02"
+    ],
+    "description": "Vibrato module - saves division, depth, widget dot positions"
+  },
+  
+  "tremolo": {
+    "variables": [],
+    "widget_state": [],
+    "registry_slots": [],
+    "description": "Tremolo module - placeholder for future implementation"
+  },
+  
+  "mixer": {
+    "variables": [],
+    "widget_state": [],
+    "registry_slots": [],
+    "description": "Mixer page - placeholder for future implementation"
+  },
+  
+  "patchbay": {
+    "variables": [],
+    "widget_state": [],
+    "registry_slots": [],
+    "description": "Patchbay page - placeholder for future implementation"
+  }
+}

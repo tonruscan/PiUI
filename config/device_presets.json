@@ -1,0 +1,64 @@
+{
+  "Quadraverb": {
+    "Reverb": {
+      "Tight Drum Plate": { "values": [0, 5, 35, 50, 45, 30, 25, 0] },
+      "Bright Vocal Plate": { "values": [0, 18, 78, 110, 95, 60, 105, 0] },
+      "Soft Warm Plate": { "values": [0, 10, 65, 95, 85, 100, 70, 0] },
+      "Snare Snap Plate": { "values": [0, 8, 28, 70, 55, 25, 40, 0] },
+      "Dark Vintage Plate": { "values": [0, 12, 85, 100, 90, 110, 55, 0] },
+      "Airy Piano Plate": { "values": [0, 22, 72, 115, 88, 70, 115, 0] },
+      "Short Ambience Plate": { "values": [0, 3, 18, 65, 50, 30, 35, 0] },
+      "Epic Long Plate": { "values": [0, 25, 110, 120, 100, 115, 108, 0] },
+      "Bright Studio Room": { "values": [32, 22, 48, 90, 100, 50, 85, 0] },
+      "Dry Tracking Room": { "values": [32, 12, 22, 60, 80, 35, 40, 0] },
+      "Wood Drum Room": { "values": [32, 18, 38, 80, 95, 70, 55, 0] },
+      "Small Speaker Booth": { "values": [32, 8, 15, 55, 75, 40, 35, 0] },
+      "Wide Live Room": { "values": [32, 28, 60, 95, 110, 65, 80, 0] },
+      "Perc Close Room": { "values": [32, 6, 20, 50, 85, 45, 30, 0] },
+      "Guitar Iso Room": { "values": [32, 16, 32, 75, 90, 55, 50, 0] },
+      "Ambient Stage Room": { "values": [32, 35, 75, 105, 115, 80, 95, 0] },
+      "Vocal Silk Plate": { "values": [0, 20, 80, 112, 96, 72, 108, 0] },
+      "Bass Tight Plate": { "values": [0, 6, 38, 70, 60, 90, 35, 0] },
+      "Drum Room Snap": { "values": [32, 10, 24, 62, 88, 45, 40, 0] },
+      "Guitar Shimmer Plate": { "values": [0, 16, 68, 108, 92, 58, 120, 0] },
+      "Piano Grand Plate": { "values": [0, 24, 95, 118, 102, 80, 110, 0] },
+      "Small Dry Room": { "values": [32, 5, 16, 55, 70, 30, 32, 0] },
+      "Warm Studio Room": { "values": [32, 18, 34, 85, 105, 70, 58, 0] },
+      "Bright Iso Room": { "values": [32, 12, 28, 90, 110, 48, 78, 0] },
+      "Tom Tunnel Room": { "values": [32, 8, 40, 78, 96, 82, 50, 0] },
+      "Snare Plate Pop": { "values": [0, 9, 30, 82, 72, 40, 64, 0] },
+      "Dark Film Plate": { "values": [0, 18, 100, 102, 88, 110, 52, 0] },
+      "Vocal Pre-Delay Kiss": { "values": [0, 32, 76, 106, 94, 66, 104, 0] },
+      "Roomy Overheads": { "values": [32, 20, 52, 92, 112, 60, 84, 0] },
+      "Brush Kit Room": { "values": [32, 14, 30, 72, 95, 58, 46, 0] },
+      "Mute Plate Short": { "values": [0, 4, 18, 65, 62, 36, 30, 0] },
+      "Sizzle Plate Bright": { "values": [0, 15, 60, 104, 98, 52, 118, 0] },
+      "Thick Low Plate": { "values": [0, 10, 70, 92, 108, 115, 72, 0] },
+      "Tape Room Soft": { "values": [32, 16, 36, 68, 88, 64, 52, 0] },
+      "Choir Air Plate": { "values": [0, 28, 108, 120, 100, 92, 120, 0] },
+      "Perc Wood Room": { "values": [32, 6, 22, 64, 90, 42, 38, 0] },
+      "Piano Bench Room": { "values": [32, 22, 44, 88, 108, 68, 76, 0] },
+      "Mono Drum Plate": { "values": [0, 7, 26, 72, 68, 38, 42, 0] },
+      "Wide Steel Plate": { "values": [0, 21, 83, 116, 106, 78, 112, 0] },
+      "Ambient Hall-ish Room": { "values": [32, 30, 68, 106, 118, 74, 96, 0] },
+      "Cabin Small Room": { "values": [32, 4, 14, 58, 80, 34, 28, 0] },
+      "Brush Snare Plate": { "values": [0, 8, 34, 76, 70, 44, 56, 0] },
+      "Dark Warm Room": { "values": [32, 12, 38, 82, 100, 86, 48, 0] },
+      "Air Knife Plate": { "values": [0, 18, 64, 110, 90, 50, 124, 0] },
+      "Subby Chamber Room": { "values": [32, 24, 58, 94, 116, 100, 70, 0] },
+      "Granular Cloud Plate (X)": { "values": [0, 40, 120, 64, 40, 95, 125, 0] }
+    }
+  },
+  "Delay": {
+    "Slap": { "values": [12, 25, 0, 0, 0, 0, 0, 0] }
+  },
+  "PogoLab": {
+    "Presets": {
+      "Deep Sweep":   { "values": [12, 45, 90, 60, 35, 80, 25, 0] },
+      "Vocal Wah":    { "values": [32, 70, 110, 20, 45, 100, 65, 0] },
+      "Hard Drive":   { "values": [64, 80, 50, 90, 120, 100, 20, 0] }
+    }
+  }
+}
+
+

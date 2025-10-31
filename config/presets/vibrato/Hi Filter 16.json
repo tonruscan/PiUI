@@ -1,0 +1,20 @@
+{
+  "page_id": "vibrato",
+  "preset_name": "Hi Filter 16",
+  "variables": {
+    "division_value": 4
+  },
+  "widget_state": {
+    "low_norm": 0.7167,
+    "high_norm": 1.0,
+    "depth_norm": 0.2833,
+    "fade_ms": 622
+  },
+  "button_states": {
+    "1": 1,
+    "2": 0,
+    "3": 0,
+    "4": 0,
+    "5": 0
+  }
+}

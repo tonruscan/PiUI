@@ -1,0 +1,65 @@
+TODO 
+
+------
+
+make LCD format 
+number on top line centered
+and name on bottom row also centered
+
+------
+
+patchbay 
+select multiple ports and update all at the same time
+
+------
+
+
+change color of header and dials depending on device
+
+----
+
+
+button 5 turn it into mixer for qv effects //DONE
+
+
+=====
+
+
+add hyperlink to debug log output
+
+
+----
+debug station:
+clear screen
+
+--
+
+screen dimmer
+
+---
+
+update from device only once per device load (devices.py / update_from_device)
+
+
+---
+load presets on separate thread (non blocking)
+
+---
+
+add pause button to log receiver
+put feed onto separate thread
+
+
+cutoff restriction
+
+ADSR - fade in my tremolo amount or tremolo speed
+
+
+---- dial shop  --- 
+
+use lpd8 pads to select which dial slot and then scroll down a list of all available dials from all devices and internal modules
+
+OSK with theme
+
+
+

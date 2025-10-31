@@ -1,0 +1,16 @@
+{
+  "slots": {
+    "1": { "device": "Quadraverb", "dial": "03", "page": "01" },
+    "2": { "device": "Quadraverb", "dial": "02", "page": "01" },
+    "3": { "device": "BMLPF",      "dial": "05", "page": "01" },
+    "4": { "device": "BMLPF",      "dial": "02", "page": "01" },
+
+    "5": { "type": "modulator", "mod_type": "vibrato",
+           "target_device": "BMLPF", "target_dial": "05", "target_page": "01",
+           "params": { "depth": 40, "rate_hz": 5.2, "shape": "sine" } },
+
+    "6": { "device": "Quadraverb", "dial": "04", "page": "02" },
+    "7": { "device": "Quadraverb", "dial": "05", "page": "02" },
+    "8": { "device": "Quadraverb", "dial": "06", "page": "02" }
+  }
+}

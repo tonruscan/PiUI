@@ -1,0 +1,1 @@
+before we start coding i would like to plan everything we do today so with razor vision and plenty of communication, please ask if you need access to any scripts that will help you to help me or if you have any specific technical questions. here are the handover notes from yesterday.
