@@ -141,4 +141,6 @@ class DialsEventHandler:
                 new_val = d.value
                 if new_val != self.last_midi_vals[i]:
                     dialhandlers.on_dial_change(d.id, new_val)
+                    # Also send update_dial_value message to trigger burst mode and dirty rect
+                    self.msg_queue.put(("update_dial_value", d.id, new_val))
                     self.last_midi_vals[i] = new_val

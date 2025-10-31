@@ -2,7 +2,7 @@
 entity_registry.py
 ------------------
 Unified access layer for both devices (from devices.json)
-and modules (from modules/<name>_mod.py).
+and plugins (from plugins/<name>_plugin.py).
 
 Usage:
     from system import entity_registry as er
@@ -67,7 +67,7 @@ def get_entity(name: str):
         showlog.warn(f"[ENTITY_REGISTRY] No plugin named '{name}_plugin'")
     except Exception as e:
         tb = traceback.format_exc(limit=1)
-        showlog.error(f"[ENTITY_REGISTRY] Module import error for '{name}': {e}\n{tb}")
+        showlog.error(f"[ENTITY_REGISTRY] Plugin import error for '{name}': {e}\n{tb}")
 
     showlog.warn(f"[ENTITY_REGISTRY] Entity not found: {name}")
     return None
@@ -87,7 +87,7 @@ def get_type(name: str) -> str:
 
 
 def is_module(name: str) -> bool:
-    """Quick check if entity is a module."""
+    """Quick check if entity is a module (plugin)."""
     return get_type(name) == "module"
 
 
@@ -117,21 +117,21 @@ def all_entities():
     except Exception as e:
         showlog.warn(f"[ENTITY_REGISTRY] Failed to enumerate devices: {e}")
 
-    # Attempt to import known modules dynamically (optional)
+    # Attempt to import known plugins dynamically (optional)
     try:
-        import pkgutil, modules
-        for _, modname, _ in pkgutil.iter_modules(modules.__path__):
-            if not modname.endswith("_mod"):
+        import pkgutil, plugins
+        for _, modname, _ in pkgutil.iter_modules(plugins.__path__):
+            if not modname.endswith("_plugin"):
                 continue
             try:
-                m = importlib.import_module(f"modules.{modname}")
+                m = importlib.import_module(f"plugins.{modname}")
                 reg = getattr(m, "REGISTRY", {})
                 if isinstance(reg, dict):
                     for k, v in reg.items():
                         result[k.lower()] = dict(v)
                         result[k.lower()].setdefault("type", "module")
             except Exception as e:
-                showlog.warn(f"[ENTITY_REGISTRY] Skipped module {modname}: {e}")
+                showlog.warn(f"[ENTITY_REGISTRY] Skipped plugin {modname}: {e}")
     except Exception:
         pass
 

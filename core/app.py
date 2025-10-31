@@ -15,7 +15,9 @@ from .services import ServiceRegistry
 from .event_bus import EventBus
 from .ui_context import UIContext
 from .page_registry import PageRegistry
+from .plugin import PluginManager
 from .mixins import HardwareMixin, RenderMixin, MessageMixin
+from managers.module_registry import ModuleRegistry
 import config as cfg
 import showlog
 import showheader
@@ -35,6 +37,8 @@ class UIApplication(HardwareMixin, RenderMixin, MessageMixin):
         self.services = ServiceRegistry()
         self.event_bus = EventBus()
         self.page_registry = PageRegistry()
+        self.plugin_manager = PluginManager(self)
+        self.module_registry = ModuleRegistry()
         
         # Core components
         self.display_manager: Optional[DisplayManager] = None
@@ -163,6 +167,8 @@ class UIApplication(HardwareMixin, RenderMixin, MessageMixin):
         self.services.register('preset_manager', self.mode_manager.preset_manager)
         self.services.register('msg_queue', self.msg_queue)
         self.services.register('screen', self.screen)
+        self.services.register('plugin_manager', self.plugin_manager)
+        self.services.register('module_registry', self.module_registry)
         
         showlog.debug(f"[APP] Registered {len(self.services.list_services())} services")
         
@@ -187,9 +193,8 @@ class UIApplication(HardwareMixin, RenderMixin, MessageMixin):
     def _init_pages(self):
         """Register all UI pages in the page registry."""
         from pages import page_dials, device_select, patchbay, mixer
-        from pages import module_base as vibrato
         
-        # Register pages with their modules
+        # Register static pages
         self.page_registry.register("dials", page_dials, "Device Dials", 
                                     meta={"themed": True, "requires_device": True})
         self.page_registry.register("device_select", device_select, "Select Device",
@@ -198,8 +203,14 @@ class UIApplication(HardwareMixin, RenderMixin, MessageMixin):
                                     meta={"themed": True})
         self.page_registry.register("mixer", mixer, "Mixer",
                                     meta={"themed": True})
-        self.page_registry.register("vibrato", vibrato, "Vibrato Maker",
-                                    meta={"themed": True, "module": True})
+        
+        # Discover and load plugins (auto-registers their pages)
+        showlog.info("[APP] Discovering plugins...")
+        plugin_count = self.plugin_manager.discover("plugins")
+        showlog.info(f"[APP] Loaded {plugin_count} plugin(s)")
+        
+        # Initialize all plugins
+        self.plugin_manager.init_all()
         
         # Preset pages handled by unified preset manager
         # But still register for completeness
@@ -401,7 +412,10 @@ class UIApplication(HardwareMixin, RenderMixin, MessageMixin):
         except Exception:
             pass
         
-        if ui_mode == "dials" and not need_full and not in_burst:
+        if ui_mode == "dials" and not need_full and in_burst:
+            # TURBO mode - only redraw changed dials + log bar (dirty rect optimization)
+            self._render_dirty_dials(offset_y)
+        elif ui_mode == "dials" and not need_full and not in_burst:
             # Idle dials - only refresh log bar
             fps = self.frame_controller.get_fps()
             log_rect = self.renderer.draw_log_bar_only(fps)
@@ -412,6 +426,10 @@ class UIApplication(HardwareMixin, RenderMixin, MessageMixin):
             # Full frame draw
             self._draw_full_frame(offset_y)
             pygame.display.flip()
+            
+            # End burst mode after full frame
+            if in_burst:
+                self.dirty_rect_manager.end_burst()
     
     def _draw_full_frame(self, offset_y: int):
         """Draw a complete frame."""
@@ -424,15 +442,75 @@ class UIApplication(HardwareMixin, RenderMixin, MessageMixin):
             offset_y=offset_y
         )
     
+    def _render_dirty_dials(self, offset_y: int):
+        """
+        Render only the dials that changed (burst/turbo mode).
+        Uses dirty rect optimization for smooth 100+ FPS dial updates.
+        """
+        from pages import page_dials
+        import dialhandlers
+        
+        # Get changed dials
+        dials = self.dial_manager.get_dials()
+        device_name = getattr(dialhandlers, "current_device_name", None)
+        
+        # Check if page is muted
+        is_page_muted = False
+        try:
+            if hasattr(dialhandlers, "mute_page_on"):
+                is_page_muted = dialhandlers.mute_page_on
+        except Exception:
+            pass
+        
+        # Redraw each dial that changed
+        for dial in dials:
+            # Check if dial was recently updated
+            if hasattr(dial, 'dirty') and dial.dirty:
+                try:
+                    # Redraw just this dial
+                    rect = page_dials.redraw_single_dial(
+                        self.screen, 
+                        dial, 
+                        offset_y=offset_y,
+                        device_name=device_name,
+                        is_page_muted=is_page_muted,
+                        update_label=True,
+                        force_label=False
+                    )
+                    
+                    # Mark the dial rect as dirty
+                    if rect:
+                        self.dirty_rect_manager.mark_dirty(rect)
+                    
+                    # Clear dirty flag
+                    dial.dirty = False
+                except Exception as e:
+                    showlog.warn(f"[APP] Dirty dial redraw failed for dial {dial.id}: {e}")
+        
+        # Also update log bar
+        fps = self.frame_controller.get_fps()
+        log_rect = self.renderer.draw_log_bar_only(fps)
+        if log_rect:
+            self.dirty_rect_manager.mark_dirty(log_rect)
+        
+        # Present all dirty regions at once
+        self.dirty_rect_manager.present_dirty(force_full=False)
+        
+        # Update burst timing
+        self.dirty_rect_manager.update_burst()
+    
     # Message callback handlers
     
     def _handle_dial_update(self, dial_id: int, value: int, ui_context: dict):
         """Handle dial value update message."""
         self.dial_manager.update_dial_value(dial_id, value)
         
-        # Persist to state manager if configured
+        # Mark dial as dirty for selective redraw
         dial = self.dial_manager.get_dial_by_id(dial_id)
         if dial:
+            dial.dirty = True  # Flag for dirty rect optimization
+            
+            # Persist to state manager if configured
             try:
                 from system import state_manager, cc_registry
                 sm = getattr(state_manager, "manager", None)
@@ -444,7 +522,7 @@ class UIApplication(HardwareMixin, RenderMixin, MessageMixin):
             except Exception as e:
                 showlog.warn(f"[APP] Dial persist failed: {e}")
         
-        # Trigger redraw
+        # Trigger burst mode (turbo dirty rect updates)
         self.dirty_rect_manager.start_burst()
     
     def _handle_mode_change(self, new_mode: str):

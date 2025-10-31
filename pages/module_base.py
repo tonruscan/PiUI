@@ -9,7 +9,7 @@ import dialhandlers
 from system import state_manager, cc_registry
 from assets import ui_button
 from system.module_core import ModuleBase
-from modules import vibrato_mod as mod
+from plugins import vibrato_plugin as mod
 from widgets.dial_widget import DialWidget
 from preset_manager import get_preset_manager
 from preset_ui import PresetSaveUI
@@ -614,7 +614,7 @@ def draw_ui(screen, offset_y=0):
     def sy(y):
         return y + offset_y
 
-    # Build simple id→label map from modules.<mod>.BUTTONS
+    # Build simple id→label map from plugins.<plugin>.BUTTONS
     module_buttons = getattr(mod, "BUTTONS", [])
     button_label_map = {}
     for entry in module_buttons:

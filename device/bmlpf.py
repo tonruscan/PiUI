@@ -412,8 +412,8 @@ def _send_stereo_pair(dial_key):
 def _notify_vibrato_stereo_update():
     """Inform the vibrato module that stereo calibration changed."""
     try:
-        from modules import vibrato_mod
-        vibrato_mod.notify_bmlpf_stereo_offset_change()
+        from plugins import vibrato_plugin
+        vibrato_plugin.notify_bmlpf_stereo_offset_change()
     except Exception as exc:
         showlog.debug(f"*[BMLPF CV] Vibrato notify failed: {exc}")
 
