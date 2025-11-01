@@ -803,7 +803,7 @@ def error(msg: Optional[str] = None, exc: Optional[BaseException] = None):
     if tb:
         full = (full + ("\n" if full else "") + tb).rstrip()
     # Use your existing sink (log / log_toggle / write function)
-    log_process("[ERROR] ", full)  # or: log_toggle("[ERROR] ", full)
+    log_toggle(f"[ERROR] {full}")
 
 
 

@@ -30,16 +30,21 @@ class DialManager:
         self.radius = 60
         self.last_midi_vals = [None] * 8
         
-    def rebuild_dials(self, device_name: Optional[str] = None) -> List[Dial]:
+    def rebuild_dials(self, device_name: Optional[str] = None, page_id: Optional[str] = None) -> List[Dial]:
         """
         Rebuild all dials with current configuration.
         
         Args:
             device_name: Optional device name for registry mapping
+            page_id: Optional page ID for page-aware dial creation (future use)
         
         Returns:
             List of created Dial objects
         """
+        # TODO: Future enhancement - use page_id to create dials with correct
+        # page-specific configuration from the start, eliminating the need for
+        # later reconfiguration via update_from_device()
+        
         self.dials = []
         
         left_pad = cfg.DIAL_PADDING_X

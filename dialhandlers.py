@@ -66,44 +66,44 @@ def load_device(device_name):
     """
     global current_device_name, current_device_id
 
-    showlog.debug(f"*[DIALHANDLERS] load_device called with device_name='{device_name}'")
+    showlog.debug(f"load_device called with device_name='{device_name}'")
 
     # --- Normalize to uppercase once so all modules match ---
     if isinstance(device_name, str):
         device_name = device_name.strip().upper()
 
-    showlog.debug(f"*[DIALHANDLERS] Normalized device_name to: '{device_name}'")
+    showlog.verbose(f"Normalized device_name to: '{device_name}'")
 
     current_device_name = device_name
-    showlog.debug(f"*[DIALHANDLERS] Set current_device_name to: '{current_device_name}'")
+    showlog.verbose(f"Set current_device_name to: '{current_device_name}'")
 
     dev_id = devices.get_id_by_name(device_name)
-    showlog.debug(f"*[DIALHANDLERS] devices.get_id_by_name('{device_name}') returned: '{dev_id}'")
+    showlog.debug(f"devices.get_id_by_name('{device_name}') returned: '{dev_id}'")
     
     if not dev_id:
-        showlog.error(f"*[DIALHANDLERS] Device not found in devices.json: {device_name}")
-        showlog.log(None, f"[MAP] Device not found in devices.json: {device_name}")
+        showlog.warn(f"Device not found in devices.json: {device_name}")
+        showlog.warn(f"[MAP] Device not found in devices.json: {device_name}")
         return
 
     current_device_id = dev_id
-    showlog.debug(f"*[DIALHANDLERS] Set current_device_id to: '{current_device_id}'")
+    showlog.verbose(f"Set current_device_id to: '{current_device_id}'")
     
     dev = devices.get(current_device_id)
-    showlog.debug(f"*[DIALHANDLERS] devices.get('{current_device_id}') returned: {dev is not None}")
+    showlog.verbose(f"devices.get('{current_device_id}') returned: {dev is not None}")
     
     if dev:
         page01_name = dev["pages"].get("01", {}).get("name", "Page 01")
-        showlog.debug(f"*[DIALHANDLERS] Device pages: {list(dev.get('pages', {}).keys())}")
-        showlog.log(None, f"[MAP] Selected device → ID={current_device_id}, Name={dev['name']} - {page01_name}")
+        showlog.verbose(f"Device pages: {list(dev.get('pages', {}).keys())}")
+        showlog.debug(f"[MAP] Selected device → ID={current_device_id}, Name={dev['name']} - {page01_name}")
     else:
-        showlog.error(f"*[DIALHANDLERS] Failed to get device info for ID '{current_device_id}'")
+        showlog.warn(f"Failed to get device info for ID '{current_device_id}'")
 
     # Apply Quadraverb default mute state on load (Reverb unmuted, others muted)
     try:
         if device_name == "QUADRAVERB":
             set_default_mute_state()
     except Exception as e:
-        showlog.log(None, f"[MAP] Default mute setup failed: {e}")
+        showlog.error(f"[MAP] Default mute setup failed: {e}")
 
     # --- Determine and return the device’s starting page ---
     # Prefer explicit setting from devices.json if available
@@ -113,12 +113,12 @@ def load_device(device_name):
     if not start_page:
         start_page = "dials" if device_name == "QUADRAVERB" else "presets"
 
-    showlog.log(None, f"[MAP] {device_name} → default page '{start_page}'")
+    showlog.debug(f"[MAP] {device_name} → default page '{start_page}'")
 
     try:
         unit_router.load_device(name, on_midi_cc)
     except Exception as e:
-        showlog.error(f"*[dialhandlers] unit_router.load_device failed: {e}")
+        showlog.error(f"unit_router.load_device failed: {e}")
     
     return start_page
 
@@ -243,7 +243,7 @@ def on_dial_change(dial_id, value):
 
                 return
         except Exception as e:
-            showlog.warn(f"[CV_ROUTE] {e}")
+            showlog.error(f"[CV_ROUTE] {e}")
 
         # --- Send to midiserver (unchanged) ---
         midiserver.enqueue_device_message(
@@ -282,7 +282,7 @@ def on_dial_change(dial_id, value):
     except Exception as e:
         import traceback
         tb = traceback.format_exc()
-        showlog.log(None, f"[DialHandler OUT error] {e}\nTraceback:\n{tb}")
+        showlog.error(f"[Out] {e}\nTraceback:\n{tb}")
 
 
 
@@ -377,16 +377,23 @@ def route_param(target_device, dial_id, value, page_id=None):
 
 ui_mode = "dials"   # <-- add near the top of file, with other globals
 
-def on_button_press(button_index):
+def on_button_press(button_index, suppress_render=False):
     """
     Called when a left/right button is pressed on the touchscreen.  
     Handles page switching, device navigation, and page-level functions.
+    
+    Args:
+        button_index: Button number (1-10)
+        suppress_render: If True, don't queue force_redraw message (for pre-loading)
     """
 
     global current_page_id, ui_mode, live_states
-    msg_queue.put(("force_redraw", 50))  # 50 frames of full redraw
     
-    showlog.debug(f"*[DIALHANDLERS] on_button_press called with button_index={button_index}")
+    # Only trigger render if not suppressed (allows pre-loading state without flashing)
+    if not suppress_render:
+        msg_queue.put(("force_redraw", 50))  # 50 frames of full redraw
+    
+    showlog.debug(f"*[DIALHANDLERS] on_button_press called with button_index={button_index}, suppress_render={suppress_render}")
     showlog.debug(f"*[DIALHANDLERS] current_device_name='{current_device_name}', current_device_id='{current_device_id}'")
     
     # --- Device-specific hook (if defined in /device/<name>.py) ---
@@ -394,29 +401,29 @@ def on_button_press(button_index):
         import importlib
         if current_device_name:
             module_name = f"device.{current_device_name.lower()}"
-            showlog.debug(f"*[DIALHANDLERS] Attempting to import module: '{module_name}'")
+            showlog.verbose(f"Attempting to import module: '{module_name}'")
             dev_module = importlib.import_module(module_name)
-            showlog.debug(f"*[DIALHANDLERS] Successfully imported {module_name}")
+            showlog.verbose(f"Successfully imported {module_name}")
             
             if hasattr(dev_module, "on_button_press"):
-                showlog.debug(f"*[DIALHANDLERS] Found on_button_press in {module_name}, calling with button {button_index}")
+                showlog.verbose(f"Found on_button_press in {module_name}, calling with button {button_index}")
                 handled = dev_module.on_button_press(button_index)
-                showlog.debug(f"*[DIALHANDLERS] {module_name}.on_button_press returned: {handled}")
+                showlog.verbose(f"{module_name}.on_button_press returned: {handled}")
                 if handled:
-                    showlog.debug(f"*[DIALHANDLERS] Button {button_index} fully handled by {current_device_name}")
+                    showlog.verbose(f"Button {button_index} fully handled by {current_device_name}")
                     return  # device handled this button fully
                 else:
-                    showlog.debug(f"*[DIALHANDLERS] Button {button_index} not handled by {current_device_name}, continuing to default logic")
+                    showlog.verbose(f"Button {button_index} not handled by {current_device_name}, continuing to default logic")
             else:
-                showlog.debug(f"*[DIALHANDLERS] No on_button_press defined for {current_device_name}")
+                showlog.warn(f"No on_button_press defined for {current_device_name}")
         else:
-            showlog.debug(f"*[DIALHANDLERS] current_device_name is None/empty, skipping device-specific handler")
+            showlog.warn(f"current_device_name is None/empty, skipping device-specific handler")
     except Exception as e:
-        showlog.error(f"*[DIALHANDLERS] Device hook error: {e}")
+        showlog.error(f"Device hook error: {e}")
         import traceback
-        showlog.debug(f"*[DIALHANDLERS] Device hook traceback: {traceback.format_exc()}")
+        showlog.error(f"Device hook traceback: {traceback.format_exc()}")
 
-    showlog.debug(f"*[DIALHANDLERS] Proceeding to default button logic for button {button_index}")
+    showlog.verbose(f"Proceeding to default button logic for button {button_index}")
 
     try:
         # --- UI-LEVEL NAVIGATION BUTTONS -------------------------------------
@@ -500,7 +507,7 @@ def on_button_press(button_index):
             showlog.debug(f"*[DIALHANDLERS] Page type is mixer, switching to mixer UI mode")
             msg_queue.put(("ui_mode", "mixer"))
             msg_queue.put(f"[PAGE] Switched to {dev['name']} - {page_info.get('name', 'Mixer')}")
-            showlog.log(None, f"[DIALHANDLERS] Queued UI mode change to MIXER for {dev['name']}")
+            showlog.log(None, f"Queued UI mode change to MIXER for {dev['name']}")
             return
         
         showlog.debug(f"*[DIALHANDLERS] Page type is '{page_type}', proceeding with standard dial page switch")
@@ -610,11 +617,39 @@ def on_button_press(button_index):
         except Exception as _e:
             showlog.warn(f"[RECALL OVERRIDE] state_manager merge failed: {_e}")
 
+        # Debug: log the final page_vals before using it
+        showlog.debug(f"*[BUTTON RECALL] Final page_vals for {dev['name']}:{current_page_id} = {page_vals} (type: {type(page_vals).__name__})")
 
         if page_vals:
-            for dial_id, val in enumerate(page_vals, start=1):
-                dials[dial_id - 1].set_value(val)
-                dials[dial_id - 1].display_text = f"{dials[dial_id - 1].label}: {val}"
+            # Handle both dict format {'dials': [...], 'buttons': {}} and list format [...]
+            if isinstance(page_vals, dict):
+                dial_values = page_vals.get('dials', [])
+                showlog.debug(f"*[BUTTON RECALL] Extracted dial_values from dict: {dial_values}")
+            else:
+                dial_values = page_vals
+            
+            for dial_id, val in enumerate(dial_values, start=1):
+                try:
+                    # Debug log to trace data source
+                    if not isinstance(val, (int, float)):
+                        showlog.error(
+                            f"[BUTTON] Invalid state value type for dial {dial_id}: "
+                            f"type={type(val).__name__}, value={repr(val)}, "
+                            f"page_vals={page_vals}, device={dev['name']}, page={current_page_id}"
+                        )
+                    
+                    dials[dial_id - 1].set_value(val)
+                    dials[dial_id - 1].display_text = f"{dials[dial_id - 1].label}: {val}"
+                except (ValueError, IndexError) as e:
+                    showlog.error(
+                        f"[BUTTON] Failed to restore dial {dial_id}: {e}, "
+                        f"val={repr(val)}, page_vals={page_vals}"
+                    )
+            
+            # ✅ NEW (Phase 1): Set is_empty flag on each dial after state is loaded
+            for dial in dials:
+                dial.is_empty = (dial.label.upper() == "EMPTY")
+            
         else:
             msg_queue.put(f"[STATE] No state found for {dev['name']}:{current_page_id}")
 

@@ -5,7 +5,7 @@
       "source_name": "BMLPF",
       "param_id": "16E6",
       "label": "Cutoff",
-      "value": 0,
+      "value": 48,
       "range": [
         0,
         100

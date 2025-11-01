@@ -555,107 +555,107 @@ def handle_bmlpf_page_switch(button_id, msg_queue, dials):
     Handle page switching specifically for BMLPF device.
     This bypasses the hardcoded Quadraverb logic in dialhandlers.py
     """
-    showlog.debug(f"*[BMLPF] handle_bmlpf_page_switch called with button_id={button_id}")
+    showlog.verbose(f"*[BMLPF] handle_bmlpf_page_switch called with button_id={button_id}")
     
     try:
         import dialhandlers
-        showlog.debug(f"*[BMLPF] dialhandlers imported successfully")
-        
-        showlog.debug(f"*[BMLPF] msg_queue type: {type(msg_queue)}, dials type: {type(dials)}")
-        showlog.debug(f"*[BMLPF] dials length: {len(dials) if dials else 'None'}")
-        
+        showlog.verbose(f"[BMLPF] dialhandlers imported successfully")
+
+        showlog.verbose(f"[BMLPF] msg_queue type: {type(msg_queue)}, dials type: {type(dials)}")
+        showlog.verbose(f"[BMLPF] dials length: {len(dials) if dials else 'None'}")
+
         # Get device info - FIRST check device file's DEVICE_INFO, then fall back to devices.json
         dev = None
         page_key = f"{int(button_id):02d}"
-        showlog.debug(f"*[BMLPF] Generated page_key: '{page_key}' from button_id: {button_id}")
-        
+        showlog.verbose(f"[BMLPF] Generated page_key: '{page_key}' from button_id: {button_id}")
+
         # Try device file DEVICE_INFO first
         try:
             if DEVICE_INFO and page_key in DEVICE_INFO.get("pages", {}):
                 dev = DEVICE_INFO
-                showlog.debug(f"*[BMLPF] Using device file DEVICE_INFO - found page {page_key}")
-                showlog.debug(f"*[BMLPF] Device file pages: {list(DEVICE_INFO.get('pages', {}).keys())}")
+                showlog.verbose(f"[BMLPF] Using device file DEVICE_INFO - found page {page_key}")
+                showlog.verbose(f"[BMLPF] Device file pages: {list(DEVICE_INFO.get('pages', {}).keys())}")
             else:
-                showlog.debug(f"*[BMLPF] Page {page_key} not found in device file DEVICE_INFO")
+                showlog.verbose(f"[BMLPF] Page {page_key} not found in device file DEVICE_INFO")
         except NameError:
-            showlog.debug(f"*[BMLPF] No DEVICE_INFO found in device file")
+            showlog.verbose(f"[BMLPF] No DEVICE_INFO found in device file")
         
         # Fall back to devices.json if not found in device file
         if not dev:
-            showlog.debug(f"*[BMLPF] Falling back to devices.json")
+            showlog.verbose(f"[BMLPF] Falling back to devices.json")
             dev = devices.get("05")  # BMLPF device ID
-            showlog.debug(f"*[BMLPF] devices.get('05') returned: {type(dev)} - {dev is not None}")
-            
+            showlog.verbose(f"[BMLPF] devices.get('05') returned: {type(dev)} - {dev is not None}")
+
             if dev and page_key in dev.get("pages", {}):
-                showlog.debug(f"*[BMLPF] Using devices.json - found page {page_key}")
-                showlog.debug(f"*[BMLPF] devices.json pages: {list(dev.get('pages', {}).keys())}")
+                showlog.verbose(f"[BMLPF] Using devices.json - found page {page_key}")
+                showlog.verbose(f"[BMLPF] devices.json pages: {list(dev.get('pages', {}).keys())}")
             else:
-                showlog.debug(f"*[BMLPF] Page {page_key} not found in devices.json either")
-        
+                showlog.verbose(f"[BMLPF] Page {page_key} not found in devices.json either")
+
         if not dev:
-            showlog.error("*[BMLPF] Device not found in either device file or devices.json")
+            showlog.error("[BMLPF] Device not found in either device file or devices.json")
             return False
             
         if page_key not in dev.get("pages", {}):
-            showlog.error(f"*[BMLPF] Page {page_key} not found in any device config")
+            showlog.error(f"[BMLPF] Page {page_key} not found in any device config")
             available_pages = list(dev.get("pages", {}).keys())
-            showlog.debug(f"*[BMLPF] Available pages: {available_pages}")
+            showlog.verbose(f"[BMLPF] Available pages: {available_pages}")
             msg_queue.put(f"[BMLPF] Page {page_key} not found")
             return False
-            
-        showlog.debug(f"*[BMLPF] Found page {page_key} in device config")
+
+        showlog.verbose(f"[BMLPF] Found page {page_key} in device config")
         page_info = dev["pages"][page_key]
-        showlog.debug(f"*[BMLPF] Page info: {page_info}")
-        
+        showlog.verbose(f"[BMLPF] Page info: {page_info}")
+
         # Store previous page for debugging
         prev_page = getattr(dialhandlers, "current_page_id", "??")
         prev_device = getattr(dialhandlers, "current_device_id", "??")
         prev_device_name = getattr(dialhandlers, "current_device_name", "??")
-        
-        showlog.debug(f"*[BMLPF] Before switch - current_page_id: {prev_page}, current_device_id: {prev_device}, current_device_name: {prev_device_name}")
-        
+
+        showlog.verbose(f"[BMLPF] Before switch - current_page_id: {prev_page}, current_device_id: {prev_device}, current_device_name: {prev_device_name}")
+
         # Update the global current_page_id
         dialhandlers.current_page_id = page_key
-        showlog.debug(f"*[BMLPF] Set dialhandlers.current_page_id to: {page_key}")
-        
+        showlog.verbose(f"[BMLPF] Set dialhandlers.current_page_id to: {page_key}")
+
         # Verify the update took
         new_page = getattr(dialhandlers, "current_page_id", "??")
-        showlog.debug(f"*[BMLPF] Verified dialhandlers.current_page_id is now: {new_page}")
-        
+        showlog.verbose(f"[BMLPF] Verified dialhandlers.current_page_id is now: {new_page}")
+
         # Update dial layout for new page
         try:
-            showlog.debug(f"*[BMLPF] Calling devices.update_from_device with device_id='05', page_id='{page_key}'")
+            showlog.verbose(f"[BMLPF] Calling devices.update_from_device with device_id='05', page_id='{page_key}'")
             header_text, button_info = devices.update_from_device(
                 "05", page_key, dials, "Header"
             )
-            showlog.debug(f"*[BMLPF] devices.update_from_device returned header_text: '{header_text}', button_info: {button_info}")
+            showlog.verbose(f"[BMLPF] devices.update_from_device returned header_text: '{header_text}', button_info: {button_info}")
         except Exception as e:
-            showlog.error(f"*[BMLPF] Error updating device layout: {e}")
+            showlog.error(f"[BMLPF] Error updating device layout: {e}")
             import traceback
-            showlog.debug(f"*[BMLPF] devices.update_from_device traceback: {traceback.format_exc()}")
+            showlog.verbose(f"[BMLPF] devices.update_from_device traceback: {traceback.format_exc()}")
             return False
         
         page_name = dev["pages"][page_key]["name"]
-        showlog.debug(f"*[BMLPF] Page name: '{page_name}'")
-        
+        showlog.verbose(f"[BMLPF] Page name: '{page_name}'")
+
         # Send messages to UI
         msg1 = f"[PAGE] Switched to {dev['name']} - {page_name}"
         msg2 = ("sysex_update", header_text, str(button_id))
         msg3 = ("select_button", str(button_id))
-        msg4 = ("force_redraw", 30)
+        # REMOVED: ("force_redraw", 30) - mode_manager already requests full frames
+        # The excessive redraws were causing blurry header text due to anti-aliasing accumulation
         
-        showlog.debug(f"*[BMLPF] Sending messages: msg1='{msg1}', msg2={msg2}, msg3={msg3}, msg4={msg4}")
+        showlog.debug(f"[BMLPF] Sending messages: msg1='{msg1}', msg2={msg2}, msg3={msg3}")
         
         msg_queue.put(msg1)
         msg_queue.put(msg2)
         msg_queue.put(msg3)
-        msg_queue.put(msg4)
         
-        showlog.debug(f"*[BMLPF] All messages sent to queue")
+        showlog.debug(f"[BMLPF] All messages sent to queue")
         
         # Recall states (simplified version)
         live_states = getattr(dialhandlers, "live_states", {})
-        showlog.debug(f"*[BMLPF] live_states type: {type(live_states)}, keys: {list(live_states.keys()) if isinstance(live_states, dict) else 'not dict'}")
+        showlog.verbose(f"[BMLPF] live_states type: {type(live_states)}, keys: {list(live_states.keys()) if isinstance(live_states, dict) else 'not dict'}")
         
         page_vals = None
         page_buttons = {}
@@ -663,7 +663,7 @@ def handle_bmlpf_page_switch(button_id, msg_queue, dials):
         if dev["name"] in live_states and page_key in live_states[dev["name"]]:
             page_vals = live_states[dev["name"]][page_key]
             msg_queue.put(f"[STATE] Recalling LIVE state for {dev['name']}:{page_key}")
-            showlog.debug(f"*[BMLPF] Using LIVE state: {page_vals}")
+            showlog.verbose(f"[BMLPF] Using LIVE state: {page_vals}")
         else:
             # Use init state - check device file first, then devices.json, then default
             init_state = None
@@ -672,14 +672,14 @@ def handle_bmlpf_page_switch(button_id, msg_queue, dials):
             try:
                 if DEVICE_INFO:
                     init_state = DEVICE_INFO.get("init_state", {})
-                    showlog.debug(f"*[BMLPF] Device file init_state: {init_state}")
+                    showlog.verbose(f"[BMLPF] Device file init_state: {init_state}")
             except NameError:
-                showlog.debug(f"*[BMLPF] No DEVICE_INFO available for init_state")
+                showlog.warn(f"[BMLPF] No DEVICE_INFO available for init_state")
             
             # Fall back to devices.json init_state
             if not init_state and dev:
                 init_state = dev.get("init_state", {})
-                showlog.debug(f"*[BMLPF] devices.json init_state: {init_state}")
+                showlog.debug(f"[BMLPF] devices.json init_state: {init_state}")
             
             # Get page values or default to zeros
             raw_page_state = init_state.get(page_key) if isinstance(init_state, dict) else None
@@ -687,59 +687,59 @@ def handle_bmlpf_page_switch(button_id, msg_queue, dials):
             if isinstance(raw_page_state, dict):
                 page_vals = raw_page_state.get("dials", [0] * 8)
                 page_buttons = raw_page_state.get("buttons", {}) or {}
-                showlog.debug(f"*[BMLPF] INIT state contains dials+buttons for page {page_key}")
+                showlog.debug(f"[BMLPF] INIT state contains dials+buttons for page {page_key}")
             elif isinstance(raw_page_state, list):
                 page_vals = raw_page_state
                 page_buttons = {}
-                showlog.debug(f"*[BMLPF] INIT state list detected for page {page_key}")
+                showlog.debug(f"[BMLPF] INIT state list detected for page {page_key}")
             else:
                 page_vals = [0] * 8
                 page_buttons = {}
-                showlog.debug(f"*[BMLPF] INIT state missing for page {page_key}, defaulting to zeros")
+                showlog.warn(f"[BMLPF] INIT state missing for page {page_key}, defaulting to zeros")
 
             # Always operate on a copy so we do not mutate shared init data
             if isinstance(page_vals, list):
                 page_vals = list(page_vals)
 
             msg_queue.put(f"[STATE] Using INIT state for {dev['name']}:{page_key}")
-            showlog.debug(f"*[BMLPF] Using INIT state: {page_vals}")
+            showlog.verbose(f"[BMLPF] Using INIT state: {page_vals}")
         
         # Apply values to dials
         if page_vals and dials:
-            showlog.debug(f"*[BMLPF] Applying {len(page_vals)} values to {len(dials)} dials")
+            showlog.verbose(f"[BMLPF] Applying {len(page_vals)} values to {len(dials)} dials")
             for dial_id, val in enumerate(page_vals, start=1):
                 if dial_id <= len(dials):
                     try:
                         dial_obj = dials[dial_id - 1]
                         old_value = getattr(dial_obj, "value", "unknown")
                         old_label = getattr(dial_obj, "label", "unknown")
-                        
-                        showlog.debug(f"*[BMLPF] Dial {dial_id} before: value={old_value}, label='{old_label}'")
-                        
+
+                        showlog.verbose(f"[BMLPF] Dial {dial_id} before: value={old_value}, label='{old_label}'")
+
                         dial_obj.set_value(val)
                         dial_obj.display_text = f"{dial_obj.label}: {val}"
                         
                         new_value = getattr(dial_obj, "value", "unknown")
                         new_label = getattr(dial_obj, "label", "unknown")
-                        
-                        showlog.debug(f"*[BMLPF] Dial {dial_id} after: value={new_value}, label='{new_label}', display_text='{dial_obj.display_text}'")
+
+                        showlog.verbose(f"[BMLPF] Dial {dial_id} after: value={new_value}, label='{new_label}', display_text='{dial_obj.display_text}'")
                     except Exception as e:
-                        showlog.error(f"*[BMLPF] Error setting dial {dial_id}: {e}")
+                        showlog.error(f"[BMLPF] Error setting dial {dial_id}: {e}")
                         import traceback
-                        showlog.debug(f"*[BMLPF] Dial {dial_id} error traceback: {traceback.format_exc()}")
+                        showlog.error(f"[BMLPF] Dial {dial_id} error traceback: {traceback.format_exc()}")
                 else:
-                    showlog.debug(f"*[BMLPF] Skipping dial {dial_id} (beyond available dials)")
+                    showlog.verbose(f"[BMLPF] Skipping dial {dial_id} (beyond available dials)")
         else:
-            showlog.debug(f"*[BMLPF] Not applying values - page_vals: {page_vals}, dials: {dials is not None}")
-        
-        showlog.debug(f"*[BMLPF] Page switch completed successfully")
-        showlog.info(f"[BMLPF] Successfully switched to page {page_key} ({page_name})")
+            showlog.verbose(f"[BMLPF] Not applying values - page_vals: {page_vals}, dials: {dials is not None}")
+
+        showlog.verbose(f"[BMLPF] Page switch completed successfully")
+        showlog.debug(f"[BMLPF] Successfully switched to page {page_key} ({page_name})")
         return True
         
     except Exception as e:
         showlog.error(f"*[BMLPF] Page switch error: {e}")
         import traceback
-        showlog.debug(f"*[BMLPF] Full traceback: {traceback.format_exc()}")
+        showlog.error(f"*[BMLPF] Full traceback: {traceback.format_exc()}")
         return False
 
 # -----------------------------------------------------------

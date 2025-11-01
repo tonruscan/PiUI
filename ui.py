@@ -9,22 +9,36 @@ Refactored: ~50 lines
 """
 
 import crashguard  # Must come first
-import sys
+crashguard.checkpoint("Crashguard imported")
 
-from core.app import UIApplication
+import sys
+crashguard.checkpoint("sys imported")
+
+try:
+    from core.app import UIApplication
+    crashguard.checkpoint("UIApplication imported successfully")
+except Exception as e:
+    crashguard.emergency_log(f"FATAL: Failed to import UIApplication: {e}")
+    import traceback
+    crashguard.emergency_log(traceback.format_exc())
+    raise
 
 
 def main():
     """
     Application entry point.
-    
+        
     Initializes and runs the UI application.
     All subsystem initialization and event loop management
     is handled by the UIApplication class.
     """
+    crashguard.checkpoint("Entering main()")
+    
     try:
         # Create application instance
+        crashguard.checkpoint("Creating UIApplication instance...")
         app = UIApplication()
+        crashguard.checkpoint("UIApplication instance created")
         
         # Initialize all subsystems
         # - Display/screen
@@ -32,26 +46,38 @@ def main():
         # - State management
         # - Managers (dials, buttons, modes, etc.)
         # - Rendering pipeline
+        crashguard.checkpoint("Starting app.initialize()...")
         app.initialize()
+        crashguard.checkpoint("app.initialize() complete")
         
         # Run main event loop
         # - Process pygame events
         # - Process message queue
-        # - Update state
+        # - Update state    
         # - Render frames
         # - Control frame rate
+        crashguard.checkpoint("Entering main event loop...")
         app.run()
         
     except KeyboardInterrupt:
+        crashguard.checkpoint("Interrupted by user (KeyboardInterrupt)")
         print("\n[EXIT] Interrupted by user")
     except Exception as e:
+        crashguard.emergency_log(f"Application error: {e}")
         print(f"[ERROR] Application error: {e}")
         import traceback
+        tb = traceback.format_exc()
+        crashguard.emergency_log(tb)
         traceback.print_exc()
     finally:
         # Clean up resources
+        crashguard.checkpoint("Entering cleanup...")
         if 'app' in locals():
-            app.cleanup()
+            try:
+                app.cleanup()
+                crashguard.checkpoint("Cleanup complete")
+            except Exception as e:
+                crashguard.emergency_log(f"Error during cleanup: {e}")
         sys.exit()
 
 

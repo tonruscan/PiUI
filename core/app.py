@@ -11,7 +11,7 @@ from typing import Optional
 
 from .display import DisplayManager
 from .loop import EventLoop
-from .services import ServiceRegistry
+from .service_registry import ServiceRegistry
 from .event_bus import EventBus
 from .ui_context import UIContext
 from .page_registry import PageRegistry
@@ -96,39 +96,73 @@ class UIApplication(HardwareMixin, RenderMixin, MessageMixin):
         print("[INIT] Setting initial page...")
         self._init_initial_page()
         
+        print("[INIT] Starting async message processing...")
+        self._start_async_processing()
+        
         print("[INIT] Application initialized successfully")
     
     def _init_display(self):
         """Initialize display and screen."""
+        import crashguard
+        crashguard.checkpoint("_init_display: Starting (DisplayManager version)")
+        
+        from managers.safe_queue import SafeQueue
+        crashguard.checkpoint("_init_display: SafeQueue imported")
+        
+        crashguard.checkpoint(f"_init_display: Creating DisplayManager (width={getattr(cfg, 'SCREEN_WIDTH', 800)}, height={getattr(cfg, 'SCREEN_HEIGHT', 480)})")
         self.display_manager = DisplayManager(
             width=getattr(cfg, "SCREEN_WIDTH", 800),
             height=getattr(cfg, "SCREEN_HEIGHT", 480),
             fullscreen=True
         )
-        self.screen = self.display_manager.initialize()
+        crashguard.checkpoint("_init_display: DisplayManager created")
         
-        # Message queue
-        self.msg_queue = queue.Queue()
+        crashguard.checkpoint("_init_display: Initializing display...")
+        self.screen = self.display_manager.initialize()
+        crashguard.checkpoint(f"_init_display: Display initialized ({self.screen.get_width()}x{self.screen.get_height()})")
+        
+        # Message queue (thread-safe for async processing)
+        self.msg_queue = SafeQueue()
+        crashguard.checkpoint("_init_display: SafeQueue created")
         
         # Share queue with existing modules
         devices.msg_queue = self.msg_queue
+        crashguard.checkpoint("_init_display: Complete")
     
     def _init_logging(self):
         """Initialize logging and display modules."""
+        import crashguard
+        crashguard.checkpoint("_init_logging: Starting")
+        
         showlog.init(self.screen)
+        crashguard.checkpoint("_init_logging: showlog.init() complete")
+        
         showheader.init(self.screen)
+        crashguard.checkpoint("_init_logging: showheader.init() complete")
+        
         showheader.init_queue(self.msg_queue)
+        crashguard.checkpoint("_init_logging: showheader.init_queue() complete")
     
     def _init_state_management(self):
         """Initialize state management systems."""
+        import crashguard
+        crashguard.checkpoint("_init_state_management: Starting")
+        
         from system import state_manager
         from initialization import RegistryInitializer
+        crashguard.checkpoint("_init_state_management: Imports successful")
         
         state_manager.init()
+        crashguard.checkpoint("_init_state_management: state_manager.init() complete")
         
         registry_init = RegistryInitializer()
+        crashguard.checkpoint("_init_state_management: RegistryInitializer created")
+        
         registry_init.initialize_cc_registry()
+        crashguard.checkpoint("_init_state_management: CC registry initialized")
+        
         registry_init.initialize_entity_registry()
+        crashguard.checkpoint("_init_state_management: Entity registry initialized")
     
     def _init_devices(self):
         """Initialize device loader and load devices."""
@@ -225,18 +259,76 @@ class UIApplication(HardwareMixin, RenderMixin, MessageMixin):
         showlog.debug(f"[APP] Registered {len(self.page_registry.list_ids())} pages")
     
     def _init_hardware(self):
-        """Initialize hardware connections."""
+        """Initialize hardware connections and register services."""
+        import crashguard
+        crashguard.checkpoint("_init_hardware: Starting")
+        
+        # Create and register services FIRST (before HardwareInitializer)
+        from core.services.midi_server import MIDIServer
+        from core.services.cv_client import CVClient
+        from core.services.network_server import NetworkServer
+        crashguard.checkpoint("_init_hardware: Service imports successful")
+        
+        # Create service instances
+        crashguard.checkpoint("_init_hardware: Creating MIDIServer...")
+        midi_server = MIDIServer()
+        crashguard.checkpoint("_init_hardware: MIDIServer created")
+        
+        crashguard.checkpoint("_init_hardware: Creating CVClient...")
+        cv_client = CVClient()
+        crashguard.checkpoint("_init_hardware: CVClient created")
+        
+        crashguard.checkpoint("_init_hardware: Creating NetworkServer...")
+        network_server = NetworkServer()
+        crashguard.checkpoint("_init_hardware: NetworkServer created")
+        
+        # Register services (deterministic order: Network → CV → MIDI)
+        self.services.register('network_server', network_server)
+        self.services.register('cv_client', cv_client)
+        self.services.register('midi_server', midi_server)
+        crashguard.checkpoint("_init_hardware: Services registered")
+        
+        showlog.info("[SERVICES] Registered: network_server, cv_client, midi_server")
+        
+        # Initialize services (check config flags with defaults)
+        disable_network = getattr(cfg, 'DISABLE_NETWORK', False)
+        disable_midi = getattr(cfg, 'DISABLE_MIDI', False)
+        
+        if not disable_network:
+            crashguard.checkpoint("_init_hardware: Starting network server...")
+            network_server.start()
+            crashguard.checkpoint("_init_hardware: Network server started")
+            
+            crashguard.checkpoint("_init_hardware: Starting CV client async...")
+            cv_client.connect_async()  # Deferred connection (non-blocking)
+            crashguard.checkpoint("_init_hardware: CV client async started")
+        else:
+            crashguard.checkpoint("_init_hardware: Network/CV disabled by config")
+        
+        if not disable_midi:
+            crashguard.checkpoint("_init_hardware: Initializing MIDI server...")
+            midi_server.init(
+                dial_cb=dialhandlers.on_midi_cc,
+                sysex_cb=dialhandlers.on_midi_sysex
+            )
+            crashguard.checkpoint("_init_hardware: MIDI server initialized")
+        else:
+            crashguard.checkpoint("_init_hardware: MIDI disabled by config")
+        
+        # Legacy: Initialize old hardware module (will use compatibility wrappers)
         from initialization import HardwareInitializer
+        crashguard.checkpoint("_init_hardware: HardwareInitializer imported")
         
         self.hardware_initializer = HardwareInitializer(self.msg_queue)
-        self.hardware_initializer.initialize_all(
-            midi_cc_callback=dialhandlers.on_midi_cc,
-            midi_sysex_callback=dialhandlers.on_midi_sysex,
-            screen=self.screen
-        )
+        crashguard.checkpoint("_init_hardware: HardwareInitializer created")
+        # Skip initialize_all since we already initialized services
+        # self.hardware_initializer.initialize_all(...)
         
-        status = self.hardware_initializer.get_status()
+        status = {"midi": midi_server.is_connected(), 
+                  "cv": cv_client.is_connected(),
+                  "network": network_server.is_running()}
         showlog.debug(f"[INIT] Hardware status: {status}")
+        crashguard.checkpoint(f"_init_hardware: Complete - Status: {status}")
     
     def _init_event_handling(self):
         """Initialize event handlers."""
@@ -255,6 +347,33 @@ class UIApplication(HardwareMixin, RenderMixin, MessageMixin):
         navigator.set_page("device_select", record=False)
         self.mode_manager.ui_mode = "device_select"
         self.mode_manager.header_text = "Select Device"
+        # Request initial full frame renders
+        self.mode_manager.request_full_frames(3)
+    
+    def _start_async_processing(self):
+        """Start background message processing thread."""
+        # Start async loop with context provider
+        self.msg_processor.start_async_loop(self._get_ui_context)
+    
+    def _get_ui_context(self):
+        """
+        Get snapshot of current UI state for background thread.
+        
+        Returns:
+            Dictionary with current UI state (safe for background thread)
+        """
+        try:
+            return {
+                "ui_mode": self.mode_manager.get_current_mode(),
+                "screen": self.screen,
+                "msg_queue": self.msg_queue,
+                "dials": self.dial_manager.get_dials(),
+                "select_button": self.button_manager.select_button,
+                "header_text": self.mode_manager.get_header_text(),
+            }
+        except Exception as e:
+            showlog.error(f"[APP] Error getting UI context: {e}")
+            return {}
     
     def run(self):
         """Run the main application loop."""
@@ -289,6 +408,11 @@ class UIApplication(HardwareMixin, RenderMixin, MessageMixin):
                 ui_mode = self.mode_manager.get_current_mode()
                 in_burst = self.dirty_rect_manager.is_in_burst()
                 target_fps = self.frame_controller.get_target_fps(ui_mode, in_burst)
+                
+                # DEBUG: Log FPS for vibrato
+                if ui_mode == "vibrato" and in_burst:
+                    showlog.debug(f"*[FPS DEBUG] vibrato: in_burst={in_burst}, target_fps={target_fps}")
+                
                 self.frame_controller.tick(target_fps)
                 
         except Exception as e:
@@ -366,37 +490,36 @@ class UIApplication(HardwareMixin, RenderMixin, MessageMixin):
                 showlog.warn(f"[APP] Unknown page mode: {ui_mode}")
     
     def _update(self):
-        """Update application state each frame."""
+        """Update application state each frame (lightweight - messages processed async)."""
         # Update header animation
         showheader.update()
         
-        # Create typed UI context
-        ui_context = UIContext(
-            ui_mode=self.mode_manager.get_current_mode(),
-            screen=self.screen,
-            msg_queue=self.msg_queue,
-            dials=self.dial_manager.get_dials(),
-            select_button=self.button_manager.select_button,
-            header_text=self.mode_manager.get_header_text(),
-            prev_mode=self.mode_manager.get_previous_mode(),
-            selected_buttons=self.button_manager.get_selected_buttons()
-        )
+        # Optional: Monitor queue backlog for debugging with rolling average
+        if cfg.DEBUG and hasattr(self.msg_queue, 'qsize'):
+            backlog = self.msg_queue.qsize()
+            
+            # Calculate rolling average for smoother display (90% old, 10% new)
+            if not hasattr(self, '_avg_backlog'):
+                self._avg_backlog = backlog
+            else:
+                self._avg_backlog = (self._avg_backlog * 0.9) + (backlog * 0.1)
+            
+            # Warn if sustained high backlog
+            if self._avg_backlog > 100:
+                showlog.warn(f"[ASYNC] Queue backlog: {int(self._avg_backlog)} (current: {backlog})")
         
-        # Process message queue with typed context
-        # Convert to dict for backward compatibility with existing msg_processor
-        self.msg_processor.process_all({
-            "ui_mode": ui_context.ui_mode,
-            "screen": ui_context.screen,
-            "msg_queue": ui_context.msg_queue,
-            "dials": ui_context.dials,
-            "select_button": ui_context.select_button,
-            "header_text": ui_context.header_text,
-        })
+        # Note: Message processing now happens in background thread
+        # The async loop in MessageQueueProcessor handles all messages at ~100Hz
     
     def _render(self):
         """Render the current frame."""
-        offset_y = showheader.get_offset()
+        # Skip rendering for modes currently transitioning to prevent flicker
+        # Other modes can still render (e.g., overlays, background animations)
         ui_mode = self.mode_manager.get_current_mode()
+        if self.mode_manager.is_mode_blocked(ui_mode):
+            return
+        
+        offset_y = showheader.get_offset()
         in_burst = self.dirty_rect_manager.is_in_burst()
         
         # Check if we need a full frame
@@ -405,26 +528,43 @@ class UIApplication(HardwareMixin, RenderMixin, MessageMixin):
             self.mode_manager.needs_full_frame()
         )
         
+        # DEBUG: Log why we're doing full frames
+        if need_full and ui_mode == "dials":
+            frame_ctrl_needs = self.frame_controller.needs_full_frame()
+            mode_mgr_needs = self.mode_manager.needs_full_frame()
+            showlog.debug(f"*[RENDER DEBUG] need_full=True: frame_controller={frame_ctrl_needs}, mode_manager={mode_mgr_needs}")
+        
         # Check if header is animating (if method exists)
         try:
             if hasattr(showheader, 'is_animating') and showheader.is_animating():
                 need_full = True
+                if ui_mode == "dials":
+                    showlog.debug(f"*[RENDER DEBUG] need_full=True: header is animating")
         except Exception:
             pass
         
-        if ui_mode == "dials" and not need_full and in_burst:
+        # Check if this mode is excluded from dirty rect optimization
+        exclude_dirty = getattr(cfg, "EXCLUDE_DIRTY", ())
+        can_use_dirty = ui_mode not in exclude_dirty
+        
+        if can_use_dirty and not need_full and in_burst:
             # TURBO mode - only redraw changed dials + log bar (dirty rect optimization)
             self._render_dirty_dials(offset_y)
-        elif ui_mode == "dials" and not need_full and not in_burst:
-            # Idle dials - only refresh log bar
+        elif can_use_dirty and not need_full and not in_burst:
+            # Idle - only refresh log bar
             fps = self.frame_controller.get_fps()
             log_rect = self.renderer.draw_log_bar_only(fps)
             if log_rect:
                 self.dirty_rect_manager.mark_dirty(log_rect)
             self.dirty_rect_manager.present_dirty(force_full=False)
         else:
-            # Full frame draw
+            # Full frame draw (either excluded from dirty rects or needs full redraw)
             self._draw_full_frame(offset_y)
+            
+            # Optional debug overlay
+            if cfg.DEBUG_OVERLAY:
+                self._draw_debug_overlay()
+            
             pygame.display.flip()
             
             # End burst mode after full frame
@@ -442,6 +582,23 @@ class UIApplication(HardwareMixin, RenderMixin, MessageMixin):
             offset_y=offset_y
         )
     
+    def _draw_debug_overlay(self):
+        """Draw debug performance overlay (development mode)."""
+        try:
+            from rendering.debug_overlay import draw_overlay
+            fps = self.frame_controller.get_fps()
+            
+            # Use rolling average for smoother queue display
+            if hasattr(self, '_avg_backlog'):
+                queue_size = int(self._avg_backlog)
+            else:
+                queue_size = self.msg_queue.qsize() if hasattr(self.msg_queue, 'qsize') else 0
+            
+            mode = cfg.ACTIVE_PROFILE if hasattr(cfg, 'ACTIVE_PROFILE') else "production"
+            draw_overlay(self.screen, fps, queue_size, mode)
+        except Exception as e:
+            showlog.warn(f"[APP] Debug overlay error: {e}")
+    
     def _render_dirty_dials(self, offset_y: int):
         """
         Render only the dials that changed (burst/turbo mode).
@@ -454,13 +611,14 @@ class UIApplication(HardwareMixin, RenderMixin, MessageMixin):
         dials = self.dial_manager.get_dials()
         device_name = getattr(dialhandlers, "current_device_name", None)
         
-        # Check if page is muted
+        # Check if page is muted (FIXED: use proper function call)
         is_page_muted = False
         try:
-            if hasattr(dialhandlers, "mute_page_on"):
-                is_page_muted = dialhandlers.mute_page_on
-        except Exception:
-            pass
+            current_pid = getattr(dialhandlers, "current_page_id", "01")
+            mute_states = dialhandlers.get_page_mute_states(device_name)
+            is_page_muted = mute_states.get(current_pid, False)
+        except Exception as e:
+            showlog.debug(f"[APP] Mute state check failed: {e}")
         
         # Redraw each dial that changed
         for dial in dials:
@@ -647,7 +805,28 @@ class UIApplication(HardwareMixin, RenderMixin, MessageMixin):
     
     def cleanup(self):
         """Clean up resources and exit."""
-        print("[EXIT] Cleaning up...")
+        showlog.info("[EXIT] Cleaning up...")
+        
+        # Clean up all registered services (MIDI, CV, Network, etc.)
+        if hasattr(self, 'services'):
+            showlog.info("[EXIT] Cleaning up services...")
+            self.services.cleanup()
+        
+        # Stop background message processing thread gracefully
+        if hasattr(self, 'msg_processor') and self.msg_processor:
+            self.msg_processor.stop_async_loop()
+            
+            # Wait for thread to terminate
+            if getattr(self.msg_processor, '_thread', None) and self.msg_processor._thread.is_alive():
+                self.msg_processor._thread.join(timeout=1.0)
+                if not self.msg_processor._thread.is_alive():
+                    showlog.info("[ASYNC] Message processor stopped gracefully")
+                else:
+                    showlog.warn("[ASYNC] Message processor timeout (forced exit)")
+        
+        # Close display and exit
         if self.display_manager:
             self.display_manager.cleanup()
+        
+        showlog.info("[EXIT] All services stopped")
         sys.exit()

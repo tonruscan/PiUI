@@ -2,10 +2,13 @@
 Message queue processing.
 
 Handles processing of queued UI messages and routing to control modules.
+Supports both synchronous and asynchronous (background thread) processing.
 """
 
 import queue
 import importlib
+import threading
+import time
 from typing import Dict, Callable, Optional
 
 import showlog
@@ -47,6 +50,11 @@ class MessageQueueProcessor:
         """
         self.msg_queue = msg_queue
         self._loaded_controls = {}
+        
+        # Async processing state
+        self._running = False
+        self._thread = None
+        self._get_context_fn = None
         
         # Callbacks will be set by the application
         self.on_header_text_change: Optional[Callable] = None
@@ -251,3 +259,60 @@ class MessageQueueProcessor:
                     
         except Exception as e:
             showlog.error(f"[MSG_QUEUE] Control routing error: {e}")
+    
+    # ==================== ASYNC PROCESSING ====================
+    
+    def start_async_loop(self, get_context_fn: Callable):
+        """
+        Start background message processing thread.
+        
+        Args:
+            get_context_fn: Function that returns current UI context snapshot
+        """
+        if self._running:
+            showlog.warn("[MSG_QUEUE] Async loop already running")
+            return
+        
+        self._get_context_fn = get_context_fn
+        self._running = True
+        self._thread = threading.Thread(
+            target=self._process_loop,
+            daemon=True,
+            name="MessageQueueProcessor"
+        )
+        self._thread.start()
+        showlog.info("[MSG_QUEUE] Started async processing loop (~100Hz)")
+    
+    def stop_async_loop(self):
+        """Stop the background processing thread."""
+        if self._running:
+            self._running = False
+            if self._thread:
+                self._thread.join(timeout=1.0)
+            showlog.info("[MSG_QUEUE] Stopped async processing loop")
+    
+    def _process_loop(self):
+        """Background processing loop (~100Hz)."""
+        showlog.info("[MSG_QUEUE] Async loop started")
+        
+        while self._running:
+            try:
+                # Get current UI context snapshot
+                if self._get_context_fn:
+                    ctx = self._get_context_fn()
+                    
+                    # Process all pending messages (scoped exception handling per message)
+                    messages = self.msg_queue.safe_get_all() if hasattr(self.msg_queue, 'safe_get_all') else []
+                    for msg in messages:
+                        try:
+                            self.process_message(msg, ctx)
+                        except Exception as e:
+                            showlog.error(f"[MSG_QUEUE] Failed to process message {msg}: {e}")
+                
+            except Exception as e:
+                showlog.error(f"[MSG_QUEUE] Async loop error: {e}")
+            
+            # Sleep to achieve ~100Hz processing rate
+            time.sleep(0.01)
+        
+        showlog.info("[MSG_QUEUE] Async loop terminated")

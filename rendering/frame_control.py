@@ -43,27 +43,20 @@ class FrameController:
         
         Args:
             ui_mode: Current UI mode/page
-            in_burst: Whether in burst mode
+            in_burst: Whether in burst mode (dial interactions)
         
         Returns:
             Target FPS value
         """
-        # Always lock Dials page to 100 FPS baseline
-        if ui_mode == "dials":
-            return 100
-        
-        # Burst mode gets turbo FPS
+        # Burst mode gets 100 FPS for smooth dial updates (matches audio 100Hz)
         if in_burst:
-            return int(getattr(cfg, "FPS_TURBO", 120))
+            return int(getattr(cfg, "FPS_BURST", 100))
         
-        # Check page-specific FPS settings
+        # Check page-specific FPS settings for non-burst rendering
         try:
             low_pages = getattr(cfg, "FPS_LOW_PAGES", ())
-            turbo_pages = getattr(cfg, "FPS_TURBO_PAGES", ())
             
-            if ui_mode in turbo_pages:
-                return int(getattr(cfg, "FPS_TURBO", 120))
-            elif ui_mode in low_pages:
+            if ui_mode in low_pages:
                 return int(getattr(cfg, "FPS_LOW", 12))
             else:
                 return int(getattr(cfg, "FPS_NORMAL", 60))

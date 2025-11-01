@@ -40,6 +40,8 @@ class ModeManager:
         
         # Frame control for transitions
         self._full_frames_left = 0
+        self._transitioning_mode = None  # Block rendering for specific mode during transitions
+        self._transitioning_from_mode = None  # Also block the mode we're transitioning FROM
     
     def get_current_mode(self) -> str:
         """Get the current UI mode."""
@@ -48,6 +50,22 @@ class ModeManager:
     def get_previous_mode(self) -> Optional[str]:
         """Get the previous UI mode."""
         return self.prev_mode
+    
+    def is_transitioning(self) -> bool:
+        """Check if mode is currently transitioning."""
+        return self._transitioning_mode is not None
+    
+    def is_mode_blocked(self, mode: str) -> bool:
+        """
+        Check if a specific mode should be blocked from rendering during transition.
+        
+        Args:
+            mode: The mode to check
+            
+        Returns:
+            True if mode is currently transitioning and should not render
+        """
+        return self._transitioning_mode == mode or self._transitioning_from_mode == mode
     
     def get_header_text(self) -> str:
         """Get the current header text."""
@@ -89,6 +107,9 @@ class ModeManager:
         if persist_callback:
             persist_callback()
         
+        # Block rendering for BOTH old and new modes during transition
+        self._transitioning_from_mode = self.ui_mode
+        
         # Handle navigation recording
         self._handle_navigation(new_mode)
         
@@ -101,6 +122,8 @@ class ModeManager:
             self._setup_device_select()
         elif new_mode == "dials":
             self._setup_dials(device_behavior_map)
+            # NOTE: Don't request full frames here - state needs to load first
+            # Full frames will be requested after state is restored in _setup_dials
         elif new_mode == "presets":
             self._setup_presets()
         elif new_mode == "patchbay":
@@ -112,8 +135,12 @@ class ModeManager:
         elif new_mode == "module_presets":
             self._setup_module_presets()
         
-        # Request full frames for transition
-        self.request_full_frames(3)
+        # Clear the from-mode block after setup completes
+        self._transitioning_from_mode = None
+        
+        # Request full frames for transition (except dials - handled internally)
+        if new_mode != "dials":
+            self.request_full_frames(3)
     
     def _handle_navigation(self, new_mode: str):
         """
@@ -151,6 +178,32 @@ class ModeManager:
     def _setup_dials(self, device_behavior_map: Optional[dict]):
         """
         Setup for dials mode.
+        
+        Args:
+            device_behavior_map: Device behavior map reference
+        """
+        import time
+        
+        # Block rendering for dials mode during transition to prevent flicker
+        self._transitioning_mode = "dials"
+        start_time = time.perf_counter()
+        
+        try:
+            self._setup_dials_internal(device_behavior_map)
+        finally:
+            # Always unblock rendering, even if setup fails
+            self._transitioning_mode = None
+            
+            # Log transition duration for performance monitoring
+            duration_ms = (time.perf_counter() - start_time) * 1000
+            if duration_ms > 40:  # One frame at 25 FPS
+                showlog.warn(f"[MODE_MGR] Dials transition took {duration_ms:.1f}ms (perceptible delay)")
+            else:
+                showlog.debug(f"[MODE_MGR] Dials transition took {duration_ms:.1f}ms")
+    
+    def _setup_dials_internal(self, device_behavior_map: Optional[dict]):
+        """
+        Internal dials setup logic.
         
         Args:
             device_behavior_map: Device behavior map reference
@@ -193,16 +246,25 @@ class ModeManager:
                 except Exception as e:
                     showlog.verbose(f"*[MODE_MGR] Failed to load behavior: {e}")
         
-        # Rebuild dials
-        self.dial_manager.rebuild_dials(device_name)
+        # Rebuild dials (creates dial objects with generic labels)
+        # DO NOT pass device_name - we don't want REGISTRY to set page 1 labels
+        # on_button_press() will set the correct page-specific labels via update_from_device()
+        if device_name is None:
+            showlog.warn("[MODE_MGR] Rebuild bypassed REGISTRY mapping; ensure update_from_device() called immediately.")
+        self.dial_manager.rebuild_dials(device_name=None)
         
-        # Handle different entry contexts
+        # Handle different entry contexts - loads the correct page with suppress_render=True
+        # This configures the dials WITHOUT triggering premature redraws
         if self.prev_mode == "device_select":
             self._handle_dials_from_device_select()
         elif self.prev_mode == "presets":
             self._handle_dials_from_presets()
         else:
             self._handle_dials_restore_last_button()
+        
+        # NOW request full frames AFTER page state is fully loaded
+        # This ensures dials are properly configured before any frames are drawn
+        self.request_full_frames(3)
     
     def _handle_dials_from_device_select(self):
         """Handle entering dials mode from device_select."""
@@ -223,9 +285,12 @@ class ModeManager:
             # Default to previously selected left button or page 1
             which = self.button_manager.restore_left_page("1")
             try:
-                dialhandlers.on_button_press(int(which))
-            except Exception:
-                pass
+                # Use suppress_render to load state without triggering frames
+                dialhandlers.on_button_press(int(which), suppress_render=True)
+                # Remember this button for the device
+                self.button_manager.remember_device_button(device_name, which)
+            except Exception as e:
+                showlog.error(f"[MODE_MGR] Failed to load page {which}: {e}")
             showlog.debug(f"[MODE_MGR] Restored/defaulted page {which}")
     
     def _handle_dials_from_presets(self):
@@ -244,9 +309,12 @@ class ModeManager:
             self._restore_preset(device_name, preset_info)
         else:
             try:
-                dialhandlers.on_button_press(1)
-            except Exception:
-                pass
+                # Use suppress_render to load state without triggering frames
+                dialhandlers.on_button_press(1, suppress_render=True)
+                # Remember button 1 for the device
+                self.button_manager.remember_device_button(device_name, "1")
+            except Exception as e:
+                showlog.error(f"[MODE_MGR] Failed to load page 1: {e}")
             self.button_manager.select_button("1")
             showlog.debug("[MODE_MGR] Default page 1 loaded (no current preset)")
     
@@ -255,23 +323,27 @@ class ModeManager:
         try:
             device_name = getattr(dialhandlers, "current_device_name", None)
             if not device_name:
+                showlog.warn("[MODE_MGR] No device_name in restore_last_button, skipping")
                 return
             
             last_button = self.button_manager.get_device_button(device_name)
             if not last_button:
+                # Should not happen - all entry paths now remember buttons
+                showlog.error(f"[MODE_MGR] No last button for {device_name} - this is a bug!")
                 return
             
             behavior = self.button_manager.get_button_behavior(last_button)
             
             if behavior == "state":
                 idx = int(last_button)
-                dialhandlers.on_button_press(idx)
+                # Use suppress_render to load state without triggering frames
+                dialhandlers.on_button_press(idx, suppress_render=True)
                 showlog.log(f"[MODE_MGR] Restored state button {last_button}")
             else:
                 showlog.debug(f"[MODE_MGR] Skipped restore for non-state button {last_button}")
                 
         except Exception as e:
-            showlog.debug(f"[MODE_MGR] Failed to restore last button: {e}")
+            showlog.error(f"[MODE_MGR] Failed to restore last button: {e}")
     
     def _restore_preset(self, device_name: str, preset_info: dict):
         """

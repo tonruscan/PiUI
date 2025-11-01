@@ -494,7 +494,7 @@ def redraw_single_dial(screen, d, offset_y=0, device_name=None, is_page_muted=Fa
         font = _get_font(cfg.DIAL_FONT_SIZE)
 
     label_surf = _get_label_surface_for_dial(d, font, text_color, unit)
-    # Hard-coded 10px Y offset for partial (dirty) redraw alignment
+    # Dirty rect needs +10px offset to match full draw positioning (dial face accounts for this)
     label_rect = ui_label.draw_label(screen, label_surf, (d.cx, d.cy + offset_y + 10), d.radius)
 
     # 5) pointer (fast)

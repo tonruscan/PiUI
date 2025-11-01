@@ -26,6 +26,11 @@ class Dial:
         self.t = 0.0
         self.EDGE_EPS = 0.02
         self.range = [0, 127]
+        
+        # Graphics optimization flags (Phase 1)
+        self.is_empty = False  # True if dial label is "EMPTY"
+        self.is_muted = False  # True if page is muted (set externally)
+        self.dirty = False     # True if dial needs redraw (dirty rect)
 
     # --------------------------------------------------------------
     # Utility methods

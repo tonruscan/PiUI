@@ -37,9 +37,14 @@ class DisplayManager:
         flags = pygame.FULLSCREEN if self.fullscreen else 0
         self.screen = pygame.display.set_mode((self.width, self.height), flags)
         
-        # Hide cursor
-        pygame.mouse.set_visible(True)
-        pygame.mouse.set_cursor((8, 8), (0, 0), (0,) * 8, (0,) * 8)
+        # Hide cursor (may not be supported on headless/VNC environments)
+        try:
+            pygame.mouse.set_visible(True)
+            pygame.mouse.set_cursor((8, 8), (0, 0), (0,) * 8, (0,) * 8)
+        except pygame.error as e:
+            # Cursor not supported in this environment (e.g., SSH/VNC)
+            import crashguard
+            crashguard.checkpoint(f"[DISPLAY] Cursor not supported: {e}")
         
         return self.screen
     

@@ -43,8 +43,15 @@ class DeviceLoader:
             self.loaded_devices[device_name.upper()] = device_module
             showlog.debug(f"[DEVICE_LOADER] Loaded module for {device_name}")
             return device_module
+        except ModuleNotFoundError:
+            # Graceful fallback - device is configured but module doesn't exist yet
+            showlog.info(f"[DEVICE_LOADER] No module found for '{device_name}' (device.{device_name.lower()}.py) - using defaults")
+            return None
         except Exception as e:
+            # Other errors (syntax errors, import errors, etc.)
             showlog.error(f"[DEVICE_LOADER] Failed to load {device_name}: {e}")
+            import traceback
+            showlog.debug(traceback.format_exc())
             return None
     
     def get_button_behavior(self, device_name: str) -> Dict:
@@ -55,7 +62,7 @@ class DeviceLoader:
             device_name: Name of the device
         
         Returns:
-            Dictionary mapping button IDs to behaviors
+            Dictionary mapping button IDs to behaviors (empty dict if device module not found)
         """
         device_name_upper = device_name.upper()
         
@@ -70,6 +77,9 @@ class DeviceLoader:
                 device_module = self.load_device_module(device_name)
             
             if not device_module:
+                # No module found - cache empty dict and return
+                showlog.debug(f"[DEVICE_LOADER] No button behavior for {device_name} (no module)")
+                self.device_behavior_map[device_name_upper] = {}
                 return {}
             
             # Try new BUTTONS schema first
@@ -82,6 +92,8 @@ class DeviceLoader:
                 behavior_map = getattr(device_module, "BUTTON_BEHAVIOR", {})
                 if behavior_map:
                     showlog.debug(f"[DEVICE_LOADER] Using legacy BUTTON_BEHAVIOR for {device_name}")
+                else:
+                    showlog.debug(f"[DEVICE_LOADER] No button definitions in {device_name} module")
             
             # Cache it
             self.device_behavior_map[device_name_upper] = behavior_map
@@ -89,6 +101,8 @@ class DeviceLoader:
             
         except Exception as e:
             showlog.error(f"[DEVICE_LOADER] Failed to get button behavior for {device_name}: {e}")
+            # Cache empty dict to prevent repeated failures
+            self.device_behavior_map[device_name_upper] = {}
             return {}
     
     def _convert_buttons_to_behavior_map(self, buttons_list: list) -> Dict:
@@ -121,6 +135,10 @@ class DeviceLoader:
         try:
             device_module = self.loaded_devices.get(device_name.upper())
             if not device_module:
+                device_module = self.load_device_module(device_name)
+            
+            if not device_module:
+                # No module - can't send calibration
                 return
             
             # Check if device uses CV transport

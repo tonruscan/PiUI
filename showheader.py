@@ -53,7 +53,11 @@ def set_context_buttons(buttons):
 def init(screen, font_name="Rasegard", font_size=40, spacing=None):
     """Initialize the header font, load arrow icon, and keep reference to screen."""
     global font, screen_ref, letter_spacing, arrow_img, burger_img, screenshot_img
-    font = pygame.font.SysFont(font_name, font_size, bold=True)
+    
+    # Rasegard has no bold variant, so pygame synthesizes it which causes blur
+    # Use regular weight to keep text sharp
+    font = pygame.font.SysFont("Rasegard", font_size)
+    
     screen_ref = screen
     letter_spacing = cfg.HEADER_LETTER_SPACING if spacing is None else spacing
 
@@ -283,11 +287,9 @@ def show(screen, msg, device_name=None):
             _current_theme = {}
         _current_device = device_name
 
-    # Safe defaults
     # --- Theme-aware header colors (unified naming) ---
     bg_rgb = helper.theme_rgb(device_name, "HEADER_BG_COLOR", "#000000")
     text_rgb = helper.theme_rgb(device_name, "HEADER_TEXT_COLOR", "#FFFFFF")
-
 
     # --- Draw header background ---
     header_text = str(msg)
@@ -295,14 +297,10 @@ def show(screen, msg, device_name=None):
     header_rect = pygame.Rect(0, 0, screen.get_width(), header_height)
     pygame.draw.rect(screen, bg_rgb, header_rect)
 
-
     # --- Centered header text ---
-    #showlog.debug(f"*[HEADER DRAW] spacing={letter_spacing!r} type={type(letter_spacing)} msg={header_text}")
-
     # Use direct render when spacing is zero to avoid any mixed spacing artifacts
     if int(letter_spacing) == 0:
-        text_surf = font.render(header_text, True, text_rgb)
-
+        text_surf = font.render(header_text, True, text_rgb, bg_rgb)
         text_rect = text_surf.get_rect()
     else:
         text_surf, text_rect = helper.render_text_with_spacing(
@@ -310,6 +308,11 @@ def show(screen, msg, device_name=None):
         )
 
     text_rect.center = (screen.get_width() // 2, header_rect.centery - 4)
+    
+    # DEBUG: Log before blitting
+    if device_name:
+        showlog.debug(f"*[HEADER DEBUG {device_name}] About to blit text_surf size={text_surf.get_size()}, pos={text_rect.topleft}")
+    
     screen.blit(text_surf, text_rect)
 
     # --- Back arrow (left) ---
