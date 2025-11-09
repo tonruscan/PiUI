@@ -34053,3 +34053,61 @@ AttributeError: 'NoneType' object has no attribute 'set_value'
 [12:03:05] 🟢 [INFO T:/UI/build/pages/page_dials.py:619] [DIALS] redraw_single_dial id=1, mini=False, panel_rect=<rect(120, 100, 120, 120)>
 [12:03:05] 🔍 [DEBUG T:/UI/build/pages/page_dials.py:671] [DIALS] label redraw dial=1 render_radius=50 cached_radius=50
 [12:03:05] 🔍 [DEBUG T:/UI/build/core/app.py:885] [RENDER_FLOW] ui_mode=spectra_switch path=idle in_burst=False need_full=False
+[2025-11-09 12:31:57] [CHECKPOINT] Entering cleanup...
+[2025-11-09 12:31:59] [CRASHGUARD] Enabling faulthandler for segfaults/hard crashes
+[2025-11-09 12:31:59] [CRASHGUARD] Faulthandler enabled successfully
+[2025-11-09 12:31:59] [CRASHGUARD] Global exception hook installed
+[2025-11-09 12:31:59] [CRASHGUARD] Thread exception hook installed
+[2025-11-09 12:31:59] [CRASHGUARD] SIGUSR1 registered for manual stack dumps
+[2025-11-09 12:31:59] ================================================================================
+[2025-11-09 12:31:59] [CRASHGUARD] Python 3.9.2 (default, Feb 28 2021, 17:03:44) 
+[GCC 10.2.1 20210110]
+[2025-11-09 12:31:59] [CRASHGUARD] Crash logging initialized
+[2025-11-09 12:31:59] [CRASHGUARD] Logs: /home/jaine/share/UI/build/crash.txt and /home/jaine/share/UI/build/ui_log.txt
+[2025-11-09 12:31:59] ================================================================================
+[2025-11-09 12:31:59] [CHECKPOINT] Crashguard imported
+[2025-11-09 12:31:59] [CHECKPOINT] sys imported
+[2025-11-09 12:32:01] [CHECKPOINT] UIApplication imported successfully
+[2025-11-09 12:32:01] [CHECKPOINT] Entering main()
+[2025-11-09 12:32:01] [CHECKPOINT] Creating UIApplication instance...
+[2025-11-09 12:32:01] [CHECKPOINT] UIApplication instance created
+[2025-11-09 12:32:01] [CHECKPOINT] Starting app.initialize()...
+[2025-11-09 12:32:01] [CHECKPOINT] _init_display: Starting (DisplayManager version)
+[2025-11-09 12:32:01] [CHECKPOINT] _init_display: SafeQueue imported
+[2025-11-09 12:32:01] [CHECKPOINT] _init_display: Creating DisplayManager (width=800, height=480)
+[2025-11-09 12:32:01] [CHECKPOINT] _init_display: DisplayManager created
+[2025-11-09 12:32:01] [CHECKPOINT] _init_display: Initializing display...
+[2025-11-09 12:32:03] [CHECKPOINT] _init_display: Display initialized (800x480)
+[2025-11-09 12:32:03] [CHECKPOINT] _init_display: SafeQueue created
+[2025-11-09 12:32:03] [CHECKPOINT] _init_display: Complete
+[2025-11-09 12:32:03] [CHECKPOINT] _init_logging: Starting
+[2025-11-09 12:32:03] [CHECKPOINT] _init_logging: showlog.init() complete
+[2025-11-09 12:32:03] [CHECKPOINT] _init_logging: showheader.init() complete
+[2025-11-09 12:32:03] [CHECKPOINT] _init_logging: showheader.init_queue() complete
+[2025-11-09 12:32:04] [CHECKPOINT] _init_state_management: Starting
+[2025-11-09 12:32:04] [CHECKPOINT] _init_state_management: Imports successful
+[2025-11-09 12:32:04] [CHECKPOINT] _init_state_management: state_manager.init() complete
+[2025-11-09 12:32:04] [CHECKPOINT] _init_state_management: RegistryInitializer created
+[2025-11-09 12:32:04] [CHECKPOINT] _init_state_management: CC registry initialized
+[2025-11-09 12:32:04] [CHECKPOINT] _init_state_management: Entity registry initialized
+[2025-11-09 12:32:04] [CHECKPOINT] _init_hardware: Starting
+[2025-11-09 12:32:04] [CHECKPOINT] _init_hardware: Service imports successful
+[2025-11-09 12:32:04] [CHECKPOINT] _init_hardware: Creating MIDIServer...
+[2025-11-09 12:32:04] [CHECKPOINT] _init_hardware: MIDIServer created
+[2025-11-09 12:32:04] [CHECKPOINT] _init_hardware: Creating CVClient...
+[2025-11-09 12:32:04] [CHECKPOINT] _init_hardware: CVClient created
+[2025-11-09 12:32:04] [CHECKPOINT] _init_hardware: Creating NetworkServer...
+[2025-11-09 12:32:04] [CHECKPOINT] _init_hardware: NetworkServer created
+[2025-11-09 12:32:04] [CHECKPOINT] _init_hardware: Services registered
+[2025-11-09 12:32:04] [CHECKPOINT] _init_hardware: Starting network server...
+[2025-11-09 12:32:04] [CHECKPOINT] _init_hardware: Network server started
+[2025-11-09 12:32:04] [CHECKPOINT] _init_hardware: Starting CV client async...
+[2025-11-09 12:32:04] [CHECKPOINT] _init_hardware: CV client async started
+[2025-11-09 12:32:04] [CHECKPOINT] _init_hardware: Initializing MIDI server...
+[2025-11-09 12:32:04] [CHECKPOINT] _init_hardware: MIDI server initialized
+[2025-11-09 12:32:04] [CHECKPOINT] _init_hardware: HardwareInitializer imported
+[2025-11-09 12:32:04] [CHECKPOINT] _init_hardware: HardwareInitializer created
+[2025-11-09 12:32:04] [CHECKPOINT] _init_hardware: Remote typing server started
+[2025-11-09 12:32:04] [CHECKPOINT] _init_hardware: Complete - Status: {'midi': True, 'cv': False, 'network': True}
+[2025-11-09 12:32:05] [CHECKPOINT] app.initialize() complete
+[2025-11-09 12:32:05] [CHECKPOINT] Entering main event loop...
