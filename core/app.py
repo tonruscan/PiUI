@@ -4,6 +4,7 @@ Main application class.
 Coordinates all subsystems and manages application lifecycle.
 """
 
+import os
 import pygame
 import queue
 import sys
@@ -66,6 +67,7 @@ class UIApplication(HardwareMixin, RenderMixin, MessageMixin):
         
         # State
         self.running = False
+        self._last_render_path = None  # track render branch for debugging
         
     def initialize(self):
         """Initialize all subsystems."""
@@ -74,6 +76,9 @@ class UIApplication(HardwareMixin, RenderMixin, MessageMixin):
         
         print("[INIT] Initializing logging...")
         self._init_logging()
+
+        print("[INIT] Inspecting audio mixer...")
+        self._log_audio_startup_state()
         
         print("[INIT] Initializing state management...")
         self._init_state_management()
@@ -142,6 +147,287 @@ class UIApplication(HardwareMixin, RenderMixin, MessageMixin):
         
         showheader.init_queue(self.msg_queue)
         crashguard.checkpoint("_init_logging: showheader.init_queue() complete")
+
+    def _log_audio_startup_state(self):
+        """Log current mixer configuration so loupe captures startup audio state."""
+        try:
+            from config import audio as audio_cfg
+        except Exception as exc:
+            showlog.warn(f"[AUDIO] Failed to import config.audio: {exc}")
+            audio_cfg = None
+
+        requested = {}
+        preferred = {}
+        force_config = None
+
+        if audio_cfg:
+            requested = {
+                "freq": getattr(audio_cfg, "SAMPLE_RATE", None),
+                "size": getattr(audio_cfg, "SAMPLE_SIZE", None),
+                "channels": getattr(audio_cfg, "CHANNELS", None),
+                "buffer": getattr(audio_cfg, "BUFFER_SIZE", None),
+            }
+            preferred = {
+                "name": getattr(audio_cfg, "PREFERRED_AUDIO_DEVICE_NAME", None),
+                "index": getattr(audio_cfg, "PREFERRED_AUDIO_DEVICE_INDEX", None),
+                "keywords": getattr(audio_cfg, "PREFERRED_AUDIO_DEVICE_KEYWORDS", ()),
+                "force_device": getattr(audio_cfg, "FORCE_AUDIO_DEVICE", True),
+            }
+            requested["allow_changes"] = getattr(audio_cfg, "ALLOW_AUDIO_CHANGES", None)
+            requested["mixer_channels"] = getattr(audio_cfg, "MIXER_NUM_CHANNELS", None)
+            force_config = getattr(audio_cfg, "FORCE_AUDIO_CONFIG", None)
+
+        env_force_value = os.environ.get("DRUMBO_FORCE_AUDIO_REINIT")
+        env_force_flag = self._bool_from_env(env_force_value)
+
+        if force_config or env_force_flag:
+            reason_bits = []
+            if force_config:
+                reason_bits.append("config")
+            if env_force_flag:
+                reason_bits.append("env")
+            reason = "/".join(reason_bits) or "unspecified"
+            self._force_audio_reinit(requested, preferred, reason)
+
+        mixer_init = pygame.mixer.get_init()
+        mixer_channels = None
+        actual = None
+
+        if mixer_init:
+            actual = {
+                "freq": mixer_init[0],
+                "format": mixer_init[1],
+                "channels": mixer_init[2],
+            }
+            try:
+                mixer_channels = pygame.mixer.get_num_channels()
+            except Exception as exc:
+                showlog.debug(f"[AUDIO] Unable to query mixer channels: {exc}")
+        else:
+            actual = None
+
+        keywords_display = None
+        if preferred.get("keywords"):
+            try:
+                keywords_display = ", ".join(sorted({str(k) for k in preferred["keywords"] if k})) or None
+            except Exception:
+                keywords_display = str(preferred.get("keywords"))
+
+        showlog.info("[AUDIO] ═══════════════════════════════════════")
+        showlog.info("[AUDIO] Audio Mixer Startup")
+        showlog.info("[AUDIO] ═══════════════════════════════════════")
+        showlog.info(f"[AUDIO] Requested → freq={requested.get('freq')} size={requested.get('size')} channels={requested.get('channels')} buffer={requested.get('buffer')}")
+        showlog.info(f"[AUDIO] Mixer channels (requested) → {requested.get('mixer_channels')}")
+        showlog.info(f"[AUDIO] Allow changes → {requested.get('allow_changes')}")
+        showlog.info(f"[AUDIO] Preferred device → name='{preferred.get('name')}' index={preferred.get('index')} keywords={keywords_display}")
+        showlog.info(f"[AUDIO] Force device selection → {preferred.get('force_device')}")
+        showlog.info(f"[AUDIO] FORCE_AUDIO_CONFIG (config) → {force_config}")
+        showlog.info(f"[AUDIO] DRUMBO_FORCE_AUDIO_REINIT (env) → {env_force_value}")
+
+        if actual:
+            showlog.info(f"[AUDIO] Mixer active → freq={actual['freq']} format={actual['format']} channels={actual['channels']} num_channels={mixer_channels}")
+        else:
+            showlog.info("[AUDIO] Mixer active → False (pygame.mixer not initialized)")
+
+        showlog.info("[AUDIO] ═══════════════════════════════════════")
+
+        payload = {
+            "requested": requested,
+            "preferred": preferred,
+            "force_config": force_config,
+            "env_force": env_force_value,
+            "mixer_active": bool(mixer_init),
+            "actual": actual,
+            "mixer_channels": mixer_channels,
+        }
+
+        showlog.debug(f"*[AUDIO] Startup mixer state {payload}")
+
+    def _force_audio_reinit(self, requested: dict, preferred: dict, reason: str):
+        requested = dict(requested or {})
+        preferred = dict(preferred or {})
+
+        freq = self._safe_int(requested.get("freq"), 44100)
+        size = self._safe_int(requested.get("size"), -16)
+        channels = self._safe_int(requested.get("channels"), 2)
+        buffer_len = self._safe_int(requested.get("buffer"), 1024)
+        mixer_channels = self._safe_int(requested.get("mixer_channels"), 8)
+
+        allow_changes = requested.get("allow_changes")
+        if allow_changes is not None:
+            allow_changes = self._safe_int(allow_changes)
+
+        keywords = preferred.get("keywords") or ()
+        if isinstance(keywords, str):
+            keywords = (keywords,)
+        else:
+            try:
+                keywords = tuple(keywords)
+            except TypeError:
+                keywords = (str(keywords),)
+
+        force_device = bool(preferred.get("force_device", True))
+
+        devices = self._enumerate_audio_devices()
+        if devices:
+            showlog.info("[AUDIO] Available output devices:")
+            for idx, name in enumerate(devices, 1):
+                showlog.info(f"[AUDIO]   {idx}. {name}")
+        else:
+            showlog.info("[AUDIO] Output device list unavailable (SDL2 audio) – proceeding with defaults")
+
+        resolved_device = None
+        if force_device:
+            resolved_device = self._resolve_audio_device(preferred, devices, keywords)
+
+        showlog.info(f"[AUDIO] Forcing mixer reinitialization ({reason}) → freq={freq} size={size} channels={channels} buffer={buffer_len}")
+        if resolved_device:
+            showlog.info(f"[AUDIO] Target output device → {resolved_device}")
+        elif not force_device:
+            showlog.info("[AUDIO] Force device selection disabled; letting SDL choose output")
+
+        try:
+            pygame.mixer.quit()
+        except Exception as exc:
+            showlog.warn(f"[AUDIO] Mixer quit during forced reinit reported: {exc}")
+
+        pre_kwargs = {
+            "frequency": freq,
+            "size": size,
+            "channels": channels,
+            "buffer": buffer_len,
+        }
+
+        try:
+            pygame.mixer.pre_init(**pre_kwargs)
+        except TypeError as exc:
+            showlog.debug(f"[AUDIO] pygame.mixer.pre_init argument mismatch: {exc}")
+        except Exception as exc:
+            showlog.debug(f"[AUDIO] pygame.mixer.pre_init failed: {exc}")
+
+        init_kwargs = {
+            "frequency": freq,
+            "size": size,
+            "channels": channels,
+            "buffer": buffer_len,
+        }
+
+        if allow_changes is not None:
+            init_kwargs["allowedchanges"] = allow_changes
+        if resolved_device:
+            init_kwargs["devicename"] = resolved_device
+
+        attempt_kwargs = dict(init_kwargs)
+
+        while True:
+            try:
+                pygame.mixer.init(**attempt_kwargs)
+                break
+            except TypeError as exc:
+                if "allowedchanges" in attempt_kwargs:
+                    showlog.debug(f"[AUDIO] Removing unsupported allowedchanges during init: {exc}")
+                    attempt_kwargs.pop("allowedchanges", None)
+                    continue
+                raise
+            except Exception as exc:
+                failing_device = attempt_kwargs.get("devicename")
+                if failing_device:
+                    showlog.warn(f"[AUDIO] Mixer init failed on '{failing_device}', retrying with default device: {exc}")
+                    attempt_kwargs.pop("devicename", None)
+                    resolved_device = None
+                    continue
+                showlog.error(f"[AUDIO] Mixer init failed: {exc}")
+                return
+
+        try:
+            pygame.mixer.set_num_channels(mixer_channels)
+        except Exception as exc:
+            showlog.warn(f"[AUDIO] Unable to set mixer channel count to {mixer_channels}: {exc}")
+
+        actual = pygame.mixer.get_init()
+        if actual:
+            showlog.info(f"[AUDIO] ✓ Mixer reinitialized → freq={actual[0]} format={actual[1]} channels={actual[2]} num_channels={pygame.mixer.get_num_channels()}")
+            showlog.debug(f"*[AUDIO] Mixer reinit kwargs={attempt_kwargs} actual={actual}")
+        else:
+            showlog.warn("[AUDIO] Mixer reinitialization reported success but pygame.mixer.get_init() returned None")
+
+    def _enumerate_audio_devices(self):
+        devices = []
+        try:
+            from pygame._sdl2 import audio as sdl2_audio
+            raw_devices = list(sdl2_audio.get_audio_device_names(False))
+            for device in raw_devices:
+                if isinstance(device, str):
+                    devices.append(device)
+                else:
+                    try:
+                        devices.append(device.decode("utf-8", "ignore"))
+                    except Exception:
+                        devices.append(str(device))
+        except Exception as exc:
+            showlog.debug(f"[AUDIO] SDL2 audio device query unavailable: {exc}")
+        return devices
+
+    def _resolve_audio_device(self, preferred: dict, devices: list, keywords: tuple):
+        devices = devices or []
+        name_pref = preferred.get("name") if preferred else None
+        index_pref = preferred.get("index") if preferred else None
+
+        if name_pref:
+            resolved = self._match_audio_device(name_pref, devices)
+            if resolved:
+                return resolved
+            return name_pref
+
+        if index_pref is not None and devices:
+            try:
+                index_pref = int(index_pref)
+                if 0 <= index_pref < len(devices):
+                    return devices[index_pref]
+                if 1 <= index_pref <= len(devices):
+                    return devices[index_pref - 1]
+            except Exception as exc:
+                showlog.warn(f"[AUDIO] Invalid preferred device index '{index_pref}': {exc}")
+
+        for keyword in keywords:
+            if not keyword:
+                continue
+            resolved = self._match_audio_device(keyword, devices)
+            if resolved:
+                return resolved
+
+        return None
+
+    def _match_audio_device(self, needle, haystack):
+        if not needle:
+            return None
+        target = str(needle).lower()
+        for device in haystack:
+            if device and str(device).lower() == target:
+                return device
+        for device in haystack:
+            if device and target in str(device).lower():
+                return device
+        return None
+
+    def _bool_from_env(self, value):
+        if value is None:
+            return False
+        if isinstance(value, bool):
+            return value
+        try:
+            text = str(value).strip().lower()
+        except Exception:
+            return False
+        return text not in ("", "0", "false", "off", "no")
+
+    def _safe_int(self, value, default=None):
+        try:
+            if value is None:
+                return default
+            return int(value)
+        except (TypeError, ValueError):
+            return default
     
     def _init_state_management(self):
         """Initialize state management systems."""
@@ -183,8 +469,8 @@ class UIApplication(HardwareMixin, RenderMixin, MessageMixin):
         self.mode_manager = ModeManager(self.dial_manager, self.button_manager, self.screen)
         self.msg_processor = MessageQueueProcessor(self.msg_queue)
         
-        # Create frame controller first
-        self.frame_controller = FrameController()
+        # Create frame controller with page_registry for capability queries
+        self.frame_controller = FrameController(page_registry=self.page_registry)
         
         # Rendering components (pass preset_manager, page_registry, and frame_controller to renderer)
         self.renderer = Renderer(self.screen, self.mode_manager.preset_manager, self.page_registry, self.frame_controller)
@@ -309,7 +595,8 @@ class UIApplication(HardwareMixin, RenderMixin, MessageMixin):
             crashguard.checkpoint("_init_hardware: Initializing MIDI server...")
             midi_server.init(
                 dial_cb=dialhandlers.on_midi_cc,
-                sysex_cb=dialhandlers.on_midi_sysex
+                sysex_cb=dialhandlers.on_midi_sysex,
+                note_cb=dialhandlers.on_midi_note
             )
             crashguard.checkpoint("_init_hardware: MIDI server initialized")
         else:
@@ -321,6 +608,12 @@ class UIApplication(HardwareMixin, RenderMixin, MessageMixin):
         
         self.hardware_initializer = HardwareInitializer(self.msg_queue)
         crashguard.checkpoint("_init_hardware: HardwareInitializer created")
+        
+        # Initialize remote typing server
+        showlog.info("[INIT] Starting remote typing server...")
+        self.hardware_initializer.initialize_remote_typing(self.screen)
+        crashguard.checkpoint("_init_hardware: Remote typing server started")
+        
         # Skip initialize_all since we already initialized services
         # self.hardware_initializer.initialize_all(...)
         
@@ -402,16 +695,25 @@ class UIApplication(HardwareMixin, RenderMixin, MessageMixin):
                 self._update()
                 
                 # Render
+                ui_mode = self.mode_manager.get_current_mode()
+                render_start = None
+                if ui_mode == "drumbo":
+                    import time
+                    render_start = time.time()
+                
                 self._render()
                 
+                if ui_mode == "drumbo" and render_start:
+                    render_time = (time.time() - render_start) * 1000
+                    showlog.debug(f"*[APP] drumbo render took {render_time:.2f}ms")
+                
                 # Control frame rate
-                ui_mode = self.mode_manager.get_current_mode()
                 in_burst = self.dirty_rect_manager.is_in_burst()
                 target_fps = self.frame_controller.get_target_fps(ui_mode, in_burst)
                 
                 # DEBUG: Log FPS for vibrato
                 if ui_mode == "vibrato" and in_burst:
-                    showlog.debug(f"*[FPS DEBUG] vibrato: in_burst={in_burst}, target_fps={target_fps}")
+                    showlog.debug(f"[FPS DEBUG] vibrato: in_burst={in_burst}, target_fps={target_fps}")
                 
                 self.frame_controller.tick(target_fps)
                 
@@ -482,6 +784,14 @@ class UIApplication(HardwareMixin, RenderMixin, MessageMixin):
             if page and page["handle_event"]:
                 try:
                     page["handle_event"](event, self.msg_queue)
+                    
+                    # Check if any widgets are dirty after event handling (vibrato, tremolo, etc.)
+                    if hasattr(page.get("module"), "get_dirty_widgets"):
+                        module = page["module"]
+                        dirty_widgets = module.get_dirty_widgets()
+                        if dirty_widgets:
+                            self.dirty_rect_manager.start_burst()
+                            
                 except Exception as e:
                     showlog.error(f"[APP] Event handling error for {ui_mode}: {e}")
             elif page:
@@ -493,6 +803,16 @@ class UIApplication(HardwareMixin, RenderMixin, MessageMixin):
         """Update application state each frame (lightweight - messages processed async)."""
         # Update header animation
         showheader.update()
+        
+        # Update widget animations EVERY FRAME (not just when in burst mode)
+        # This ensures smooth animation playback at full framerate
+        ui_mode = self.mode_manager.get_current_mode()
+        page_info = self.page_registry.get(ui_mode)
+        if page_info and hasattr(page_info.get("module"), "get_all_widgets"):
+            module = page_info["module"]
+            for widget in module.get_all_widgets():
+                if hasattr(widget, "update_animation"):
+                    widget.update_animation()
         
         # Optional: Monitor queue backlog for debugging with rolling average
         if cfg.DEBUG and hasattr(self.msg_queue, 'qsize'):
@@ -517,9 +837,22 @@ class UIApplication(HardwareMixin, RenderMixin, MessageMixin):
         # Other modes can still render (e.g., overlays, background animations)
         ui_mode = self.mode_manager.get_current_mode()
         if self.mode_manager.is_mode_blocked(ui_mode):
+            if self._last_render_path != "blocked":
+                showlog.debug(f"*[RENDER_FLOW] ui_mode={ui_mode} path=blocked")
+                self._last_render_path = "blocked"
             return
         
         offset_y = showheader.get_offset()
+        
+        # Check if any widgets are dirty (including custom widgets with animations)
+        page_info = self.page_registry.get(ui_mode)
+        if page_info and hasattr(page_info.get("module"), "get_dirty_widgets"):
+            module = page_info["module"]
+            dirty_widgets = module.get_dirty_widgets()
+            if dirty_widgets:
+                showlog.verbose(f"[APP] Found {len(dirty_widgets)} dirty widgets before render - starting burst")
+                self.dirty_rect_manager.start_burst()
+        
         in_burst = self.dirty_rect_manager.is_in_burst()
         
         # Check if we need a full frame
@@ -532,14 +865,14 @@ class UIApplication(HardwareMixin, RenderMixin, MessageMixin):
         if need_full and ui_mode == "dials":
             frame_ctrl_needs = self.frame_controller.needs_full_frame()
             mode_mgr_needs = self.mode_manager.needs_full_frame()
-            showlog.debug(f"*[RENDER DEBUG] need_full=True: frame_controller={frame_ctrl_needs}, mode_manager={mode_mgr_needs}")
+            showlog.verbose(f"[RENDER DEBUG] need_full=True: frame_controller={frame_ctrl_needs}, mode_manager={mode_mgr_needs}")
         
         # Check if header is animating (if method exists)
         try:
             if hasattr(showheader, 'is_animating') and showheader.is_animating():
                 need_full = True
                 if ui_mode == "dials":
-                    showlog.debug(f"*[RENDER DEBUG] need_full=True: header is animating")
+                    showlog.debug(f"[RENDER DEBUG] need_full=True: header is animating")
         except Exception:
             pass
         
@@ -547,17 +880,52 @@ class UIApplication(HardwareMixin, RenderMixin, MessageMixin):
         exclude_dirty = getattr(cfg, "EXCLUDE_DIRTY", ())
         can_use_dirty = ui_mode not in exclude_dirty
         
+        def _log_render_path(label: str):
+            if self._last_render_path != label:
+                showlog.debug(
+                    f"*[RENDER_FLOW] ui_mode={ui_mode} path={label} in_burst={in_burst} need_full={need_full}"
+                )
+                self._last_render_path = label
+
         if can_use_dirty and not need_full and in_burst:
+            _log_render_path("dirty-burst")
             # TURBO mode - only redraw changed dials + log bar (dirty rect optimization)
             self._render_dirty_dials(offset_y)
         elif can_use_dirty and not need_full and not in_burst:
-            # Idle - only refresh log bar
-            fps = self.frame_controller.get_fps()
-            log_rect = self.renderer.draw_log_bar_only(fps)
-            if log_rect:
-                self.dirty_rect_manager.mark_dirty(log_rect)
-            self.dirty_rect_manager.present_dirty(force_full=False)
+            # Check if there are any dirty dials/widgets to update
+            has_dirty = False
+            
+            # Check module-based pages
+            page_info = self.page_registry.get(ui_mode)
+            if page_info and hasattr(page_info.get("module"), "get_dirty_widgets"):
+                try:
+                    module = page_info["module"]
+                    dirty_widgets = module.get_dirty_widgets()
+                    has_dirty = len(dirty_widgets) > 0
+                except Exception:
+                    pass
+            else:
+                # Check legacy dials
+                dials = self.dial_manager.get_dials()
+                for dial in dials:
+                    if hasattr(dial, 'dirty') and dial.dirty:
+                        has_dirty = True
+                        break
+            
+            if has_dirty:
+                _log_render_path("dirty-once")
+                # Render dirty dials even outside burst
+                self._render_dirty_dials(offset_y)
+            else:
+                _log_render_path("idle")
+                # Idle - only refresh log bar
+                fps = self.frame_controller.get_fps()
+                log_rect = self.renderer.draw_log_bar_only(fps)
+                if log_rect:
+                    self.dirty_rect_manager.mark_dirty(log_rect)
+                self.dirty_rect_manager.present_dirty(force_full=False)
         else:
+            _log_render_path("full")
             # Full frame draw (either excluded from dirty rects or needs full redraw)
             self._draw_full_frame(offset_y)
             
@@ -601,66 +969,107 @@ class UIApplication(HardwareMixin, RenderMixin, MessageMixin):
     
     def _render_dirty_dials(self, offset_y: int):
         """
-        Render only the dials that changed (burst/turbo mode).
+        Render only the dials/widgets that changed (burst/turbo mode).
         Uses dirty rect optimization for smooth 100+ FPS dial updates.
         """
-        from pages import page_dials
-        import dialhandlers
+        ui_mode = self.mode_manager.get_current_mode()
         
-        # Get changed dials
-        dials = self.dial_manager.get_dials()
-        device_name = getattr(dialhandlers, "current_device_name", None)
+        # Check if this is a module-based page with dirty rect support
+        page_info = self.page_registry.get(ui_mode)
+        if page_info and hasattr(page_info.get("module"), "redraw_dirty_widgets"):
+            # New module-based approach (vibrato, tremolo, etc.)
+            module = page_info["module"]
+            
+            # Update any animations BEFORE drawing - check ALL widgets, not just dirty ones
+            # Animation updates need to happen every frame to maintain smooth playback
+            if hasattr(module, "get_all_widgets"):
+                for widget in module.get_all_widgets():
+                    if hasattr(widget, "update_animation"):
+                        widget.update_animation()
+            elif hasattr(module, "get_dirty_widgets"):
+                # Fallback to dirty widgets if get_all_widgets not available
+                for widget in module.get_dirty_widgets():
+                    if hasattr(widget, "update_animation"):
+                        widget.update_animation()
+            
+            try:
+                dirty_rects = module.redraw_dirty_widgets(self.screen, offset_y=offset_y)
+                for rect in dirty_rects:
+                    self.dirty_rect_manager.mark_dirty(rect)
+            except Exception as e:
+                showlog.warn(f"[APP] Module dirty redraw failed for {ui_mode}: {e}")
+        else:
+            # Legacy dials page approach
+            from pages import page_dials
+            import dialhandlers
+            
+            dials = self.dial_manager.get_dials()
+            device_name = getattr(dialhandlers, "current_device_name", None)
+            
+            is_page_muted = False
+            try:
+                current_pid = getattr(dialhandlers, "current_page_id", "01")
+                mute_states = dialhandlers.get_page_mute_states(device_name)
+                is_page_muted = mute_states.get(current_pid, False)
+            except Exception as e:
+                showlog.debug(f"[APP] Mute state check failed: {e}")
+            
+            # Redraw each dial that changed
+            for dial in dials:
+                if hasattr(dial, 'dirty') and dial.dirty:
+                    showlog.info(f"*[APP] Redrawing dirty dial {dial.id}, value={getattr(dial, 'value', None)}, angle={getattr(dial, 'angle', None)}")
+                    try:
+                        rect = page_dials.redraw_single_dial(
+                            self.screen, dial, offset_y=offset_y,
+                            device_name=device_name, is_page_muted=is_page_muted,
+                            update_label=True, force_label=False
+                        )
+                        showlog.error(f"[APP] redraw_single_dial returned rect={rect}")
+                        if rect:
+                            self.dirty_rect_manager.mark_dirty(rect)
+                        dial.dirty = False
+                    except Exception as e:
+                        showlog.warn(f"[APP] Dirty dial redraw failed for dial {dial.id}: {e}")
         
-        # Check if page is muted (FIXED: use proper function call)
-        is_page_muted = False
-        try:
-            current_pid = getattr(dialhandlers, "current_page_id", "01")
-            mute_states = dialhandlers.get_page_mute_states(device_name)
-            is_page_muted = mute_states.get(current_pid, False)
-        except Exception as e:
-            showlog.debug(f"[APP] Mute state check failed: {e}")
-        
-        # Redraw each dial that changed
-        for dial in dials:
-            # Check if dial was recently updated
-            if hasattr(dial, 'dirty') and dial.dirty:
-                try:
-                    # Redraw just this dial
-                    rect = page_dials.redraw_single_dial(
-                        self.screen, 
-                        dial, 
-                        offset_y=offset_y,
-                        device_name=device_name,
-                        is_page_muted=is_page_muted,
-                        update_label=True,
-                        force_label=False
-                    )
-                    
-                    # Mark the dial rect as dirty
-                    if rect:
-                        self.dirty_rect_manager.mark_dirty(rect)
-                    
-                    # Clear dirty flag
-                    dial.dirty = False
-                except Exception as e:
-                    showlog.warn(f"[APP] Dirty dial redraw failed for dial {dial.id}: {e}")
-        
-        # Also update log bar
+        # Update log bar
         fps = self.frame_controller.get_fps()
         log_rect = self.renderer.draw_log_bar_only(fps)
         if log_rect:
             self.dirty_rect_manager.mark_dirty(log_rect)
         
-        # Present all dirty regions at once
-        self.dirty_rect_manager.present_dirty(force_full=False)
+        # Debug overlay: Draw magenta boxes around dirty regions
+        self.dirty_rect_manager.debug_overlay(self.screen)
         
-        # Update burst timing
-        self.dirty_rect_manager.update_burst()
+        self.dirty_rect_manager.present_dirty(force_full=False)
     
     # Message callback handlers
     
     def _handle_dial_update(self, dial_id: int, value: int, ui_context: dict):
         """Handle dial value update message."""
+        ui_mode = self.mode_manager.get_current_mode()
+        
+        showlog.debug(f"*[APP] _handle_dial_update(dial_id={dial_id}, value={value}), ui_mode={ui_mode}")
+        
+        # Check if this is a module-based page
+        page_info = self.page_registry.get(ui_mode)
+        showlog.debug(f"*[APP] page_info={page_info is not None}, has module={hasattr(page_info.get('module') if page_info else None, 'handle_hw_dial')}")
+        
+        if page_info and hasattr(page_info.get("module"), "handle_hw_dial"):
+            # Module-based page (vibrato, tremolo, etc.)
+            module = page_info["module"]
+            showlog.debug(f"*[APP] Routing to module {module}")
+            try:
+                handled = module.handle_hw_dial(dial_id, value)
+                showlog.debug(f"*[APP] Module handled={handled}")
+                if handled:
+                    self.dirty_rect_manager.start_burst()
+                    return
+            except Exception as e:
+                showlog.warn(f"[APP] Module dial update failed for {ui_mode}: {e}")
+        else:
+            showlog.debug(f"*[APP] Not a module page, using legacy dial system")
+        
+        # Legacy dials page approach
         self.dial_manager.update_dial_value(dial_id, value)
         
         # Mark dial as dirty for selective redraw
@@ -741,10 +1150,36 @@ class UIApplication(HardwareMixin, RenderMixin, MessageMixin):
     def _handle_force_redraw(self, msg: tuple):
         """Handle force redraw request."""
         try:
-            val = msg[1] if len(msg) > 1 else 2.0
-            frames = int(float(val) * 60) if float(val) < 10 else int(val)
+            raw_val = msg[1] if len(msg) > 1 else 2
+
+            def _seconds_to_frames(seconds: float) -> int:
+                ui_mode = self.mode_manager.get_current_mode()
+                fps = max(self.frame_controller.get_target_fps(ui_mode, False), 1)
+                return int(max(round(seconds * fps), 1))
+
+            if isinstance(raw_val, dict):
+                frames = int(raw_val.get("frames", 0))
+                if frames <= 0 and "seconds" in raw_val:
+                    frames = _seconds_to_frames(float(raw_val["seconds"]))
+            elif isinstance(raw_val, str):
+                trimmed = raw_val.strip().lower()
+                if trimmed.endswith("s"):
+                    frames = _seconds_to_frames(float(trimmed[:-1] or 0))
+                else:
+                    frames = int(float(trimmed))
+            elif isinstance(raw_val, int):
+                frames = raw_val
+            elif isinstance(raw_val, float):
+                if raw_val.is_integer():
+                    frames = int(raw_val)
+                else:
+                    frames = _seconds_to_frames(raw_val)
+            else:
+                frames = int(float(raw_val))
+
+            frames = max(frames, 1)
             self.frame_controller.request_full_frames(frames)
-            showlog.debug(f"[APP] Forced redraw for {frames} frames")
+            showlog.debug(f"[APP] Forced redraw for {frames} frame(s) (raw={raw_val!r})")
         except Exception as e:
             showlog.warn(f"[APP] Force redraw failed: {e}")
     
@@ -753,13 +1188,26 @@ class UIApplication(HardwareMixin, RenderMixin, MessageMixin):
         _, char = msg
         ui_mode = ui_context.get("ui_mode")
         
-        if ui_mode == "vibrato":
-            from pages import module_base as vibrato
-            if hasattr(vibrato, "is_preset_ui_active") and vibrato.is_preset_ui_active():
-                vibrato.handle_remote_input(char)
-        elif ui_mode == "patchbay":
+        showlog.debug(f"[APP._handle_remote_char] char='{char}', ui_mode='{ui_mode}'")
+        
+        # Check if this is a module_base page (vibrato, vk8m, ascii_animator, etc.)
+        # First try to import module_base and check if preset UI is active
+        try:
+            from pages import module_base
+            if hasattr(module_base, "is_preset_ui_active") and module_base.is_preset_ui_active():
+                showlog.debug(f"[APP._handle_remote_char] Preset UI is active, routing to module_base")
+                module_base.handle_remote_input(char)
+                return
+        except Exception as e:
+            showlog.debug(f"[APP._handle_remote_char] Could not check module_base: {e}")
+        
+        # Legacy: specific page handlers
+        if ui_mode == "patchbay":
+            showlog.debug(f"[APP._handle_remote_char] Patchbay mode, routing to patchbay")
             from pages import patchbay
             patchbay.handle_remote_input(char)
+        else:
+            showlog.debug(f"[APP._handle_remote_char] Unhandled ui_mode '{ui_mode}'")
     
     def _handle_patch_select(self, msg: str, ui_context: dict):
         """Handle patch select message."""

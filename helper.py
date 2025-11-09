@@ -52,10 +52,11 @@ class device_theme:
         """
         Safe color/setting resolver:
         Priority:
-          1️⃣  device.<name>.THEME[key]
-          2️⃣  config.<KEY.upper()>
-          3️⃣  provided fallback argument
-          4️⃣  '#FFFFFF' (final default)
+          1️⃣  Active module THEME (for standalone plugins only)
+          2️⃣  device.<name>.THEME[key]
+          3️⃣  config.<KEY.upper()>
+          4️⃣  provided fallback argument
+          5️⃣  '#FFFFFF' (final default)
         """
         # --- Step 0: safe import of config ---
         try:
@@ -63,22 +64,52 @@ class device_theme:
         except Exception:
             cfg = None
 
-        # --- Step 1: device THEME lookup ---
+        # --- Step 1: Check active module THEME (ONLY for standalone plugins) ---
+        try:
+            from pages import module_base
+            active_module = getattr(module_base, "_ACTIVE_MODULE", None)
+            
+            showlog.verbose(f"[THEME] device_name='{device_name}', key='{key}', active_module={active_module}")
+            
+            # Only use module theme if it's STANDALONE (not inheriting from parent device)
+            is_standalone = getattr(active_module, "STANDALONE", False) if active_module else False
+            
+            showlog.verbose(f"[THEME] is_standalone={is_standalone}")
+            
+            if is_standalone and active_module and hasattr(active_module, "THEME"):
+                theme = getattr(active_module, "THEME")
+                if isinstance(theme, dict) and key in theme:
+                    val = theme[key]
+                    showlog.verbose(f"[THEME] ✅ USING standalone module theme: {device_name}.{key} = {val}")
+                    return val
+                else:
+                    showlog.verbose(f"[THEME] Standalone module has THEME but key '{key}' not found")
+            else:
+                showlog.verbose(f"[THEME] Not using module theme (is_standalone={is_standalone})")
+        except Exception as e:
+            showlog.error(f"[THEME] Active module check exception: {e}")
+            import traceback
+            showlog.error(f"[THEME] Traceback: {traceback.format_exc()}")
+
+        # --- Step 2: device THEME lookup ---
+        showlog.verbose(f"[THEME] Step 2: Looking for device.{device_name}.THEME[{key}]")
         try:
             if device_name:
                 dev_module = importlib.import_module(f"device.{device_name.lower()}")
                 theme = getattr(dev_module, "THEME", {})
+                showlog.verbose(f"[THEME] Found device module, THEME keys: {list(theme.keys())[:5] if theme else 'NO THEME'}")
                 if key in theme:
                     val = theme[key]
-                   
-                    showlog.verbose2(f"[THEME] {device_name}.{key} → device")
+                    showlog.verbose(f"[THEME] ✅ USING device theme: {device_name}.{key} = {val}")
                     return val
+                else:
+                    showlog.verbose(f"[THEME] Key '{key}' not in device THEME")
         except Exception as e:
-            # Silently ignore missing module or bad import
+            pass # DEBUG PASS
+            #showlog.warn(f"[THEME] Device lookup failed: {e}")
 
-            showlog.verbose2(f"[THEME] Missing or invalid THEME for {device_name}: {e}")
-
-        # --- Step 2: config fallback ---
+        # --- Step 3: config fallback ---
+        showlog.verbose(f"[THEME] Step 3: Falling back to config or default")
         if cfg:
             try:
                 cfg_key = key.upper()

@@ -1,0 +1,22 @@
+{
+  "id": "snare",
+  "display_name": "Snare1 01",
+  "category": null,
+  "banks": [
+    {
+      "id": "A",
+      "dials": [
+        {
+          "slot": 1,
+          "label": "SNARE1",
+          "variable": "mic_1_level",
+          "range": [
+            0,
+            127
+          ],
+          "default": 0
+        }
+      ]
+    }
+  ]
+}

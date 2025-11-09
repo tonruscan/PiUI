@@ -302,23 +302,23 @@ def handle_cv_send(dial_id, value, current_page_id):
     global _stereo_base_values, _stereo_offset_values
     
     try:
-        showlog.debug(f"*[BMLPF CV] handle_cv_send called: dial_id={dial_id}, value={value}, page_id={current_page_id}")
+        showlog.debug(f"[BMLPF CV] handle_cv_send called: dial_id={dial_id}, value={value}, page_id={current_page_id}")
         
         dial_key = f"{dial_id:02d}"
         
         # Check if we're on page 02 (stereo mode)
         if current_page_id == "02":
-            showlog.debug(f"*[BMLPF CV] Stereo mode detected for page 02")
+            showlog.debug(f"[BMLPF CV] Stereo mode detected for page 02")
             
             # Update stored values
             if dial_key in ["01", "02"]:
                 # Base value update
                 _stereo_base_values[dial_key] = value
-                showlog.debug(f"*[BMLPF CV] Updated base value for dial {dial_key}: {value}")
+                showlog.debug(f"[BMLPF CV] Updated base value for dial {dial_key}: {value}")
             elif dial_key in ["03", "04"]:
                 # Offset value update
                 _stereo_offset_values[dial_key] = value
-                showlog.debug(f"*[BMLPF CV] Updated offset value for dial {dial_key}: {value}")
+                showlog.debug(f"[BMLPF CV] Updated offset value for dial {dial_key}: {value}")
             
             # Handle stereo pairs with offsets
             if dial_key in CV_MAP_STEREO:
@@ -333,17 +333,17 @@ def handle_cv_send(dial_id, value, current_page_id):
                 _notify_vibrato_stereo_update()
                 return True
             else:
-                showlog.debug(f"*[BMLPF CV] No stereo mapping for dial {dial_key} on page 02")
+                showlog.debug(f"[BMLPF CV] No stereo mapping for dial {dial_key} on page 02")
                 return False
         else:
             # Not stereo mode, let default CV logic handle it
-            showlog.debug(f"*[BMLPF CV] Not stereo mode (page {current_page_id}), using default CV logic")
+            showlog.debug(f"[BMLPF CV] Not stereo mode (page {current_page_id}), using default CV logic")
             return False
             
     except Exception as e:
-        showlog.error(f"*[BMLPF CV] Error in handle_cv_send: {e}")
+        showlog.error(f"[BMLPF CV] Error in handle_cv_send: {e}")
         import traceback
-        showlog.debug(f"*[BMLPF CV] Traceback: {traceback.format_exc()}")
+        showlog.error(f"[BMLPF CV] Traceback: {traceback.format_exc()}")
         return False
 
 def _send_stereo_pair(dial_key):
@@ -355,7 +355,7 @@ def _send_stereo_pair(dial_key):
     
     try:
         if dial_key not in CV_MAP_STEREO:
-            showlog.debug(f"*[BMLPF CV] No stereo mapping for {dial_key}")
+            showlog.debug(f"[BMLPF CV] No stereo mapping for {dial_key}")
             return
             
         channels = CV_MAP_STEREO[dial_key]
@@ -371,7 +371,7 @@ def _send_stereo_pair(dial_key):
             offset_raw = _stereo_offset_values.get("04", 64)  # Default center
             offset_type = "resonance_offset"
             
-        showlog.debug(f"*[BMLPF CV] Stereo pair {dial_key}: base={base_value}, offset_raw={offset_raw}, type={offset_type}")
+        showlog.debug(f"[BMLPF CV] Stereo pair {dial_key}: base={base_value}, offset_raw={offset_raw}, type={offset_type}")
         
         # Convert base value to DAC range
         max_val = CV_RESOLUTION
@@ -383,10 +383,10 @@ def _send_stereo_pair(dial_key):
             max_offset = STEREO_OFFSET_LIMITS[offset_type]
             # Map 0-127 to -max_offset to +max_offset, with 64 being center (0 offset)
             offset_dac = int(((offset_raw - 64) / 63.5) * max_offset)
-            showlog.debug(f"*[BMLPF CV] Calculated offset: {offset_dac} DAC units (max: ±{max_offset})")
+            showlog.debug(f"[BMLPF CV] Calculated offset: {offset_dac} DAC units (max: ±{max_offset})")
         else:
             offset_dac = 0
-            showlog.debug(f"*[BMLPF CV] No offset applied")
+            showlog.debug(f"[BMLPF CV] No offset applied")
         
         # Calculate L and R values with offset
         # L channel gets -offset, R channel gets +offset for stereo spread
@@ -401,12 +401,12 @@ def _send_stereo_pair(dial_key):
         cv_client.send(channels[0], left_val)   # L channel
         cv_client.send(channels[1], right_val)  # R channel
         
-        showlog.debug(f"*[BMLPF CV] Stereo send {dial_key}: L(CH{channels[0]})={left_val}, R(CH{channels[1]})={right_val}, offset={offset_dac}")
+        showlog.debug(f"[BMLPF CV] Stereo send {dial_key}: L(CH{channels[0]})={left_val}, R(CH{channels[1]})={right_val}, offset={offset_dac}")
         
     except Exception as e:
-        showlog.error(f"*[BMLPF CV] Error in _send_stereo_pair: {e}")
+        showlog.error(f"[BMLPF CV] Error in _send_stereo_pair: {e}")
         import traceback
-        showlog.debug(f"*[BMLPF CV] _send_stereo_pair traceback: {traceback.format_exc()}")
+        showlog.debug(f"[BMLPF CV] _send_stereo_pair traceback: {traceback.format_exc()}")
 
 
 def _notify_vibrato_stereo_update():
@@ -415,7 +415,7 @@ def _notify_vibrato_stereo_update():
         from plugins import vibrato_plugin
         vibrato_plugin.notify_bmlpf_stereo_offset_change()
     except Exception as exc:
-        showlog.debug(f"*[BMLPF CV] Vibrato notify failed: {exc}")
+        showlog.debug(f"[BMLPF CV] Vibrato notify failed: {exc}")
 
 # -----------------------------------------------------------
 # Configuration and utility functions
@@ -433,13 +433,13 @@ def set_offset_limits(cutoff_offset=None, resonance_offset=None):
     
     if cutoff_offset is not None:
         STEREO_OFFSET_LIMITS["cutoff_offset"] = cutoff_offset
-        showlog.info(f"*[BMLPF CONFIG] Set cutoff offset limit to {cutoff_offset} DAC units")
+        showlog.info(f"[BMLPF CONFIG] Set cutoff offset limit to {cutoff_offset} DAC units")
         
     if resonance_offset is not None:
         STEREO_OFFSET_LIMITS["resonance_offset"] = resonance_offset
-        showlog.info(f"*[BMLPF CONFIG] Set resonance offset limit to {resonance_offset} DAC units")
+        showlog.info(f"[BMLPF CONFIG] Set resonance offset limit to {resonance_offset} DAC units")
         
-    showlog.debug(f"*[BMLPF CONFIG] Current offset limits: {STEREO_OFFSET_LIMITS}")
+    showlog.debug(f"[BMLPF CONFIG] Current offset limits: {STEREO_OFFSET_LIMITS}")
 
 
 def get_stereo_offset_value(dial_key):
@@ -482,7 +482,7 @@ def get_stereo_offset_dac(offset_type):
     # Calculate offset: 0-127 maps to -max to +max, center at 64
     offset_dac = int(((offset_raw - 64) / 63.5) * max_offset)
     
-    showlog.debug(f"*[BMLPF OFFSET] {offset_type}: raw={offset_raw}, dac={offset_dac}, max=±{max_offset}")
+    showlog.debug(f"[BMLPF OFFSET] {offset_type}: raw={offset_raw}, dac={offset_dac}, max=±{max_offset}")
     
     return offset_dac
 
@@ -501,42 +501,42 @@ def debug_current_state():
         msg_queue = getattr(dialhandlers, "msg_queue", None)
         dials = getattr(dialhandlers, "dials", None)
         
-        showlog.debug(f"*[BMLPF DEBUG] current_device_name: '{current_device_name}'")
-        showlog.debug(f"*[BMLPF DEBUG] current_device_id: '{current_device_id}'")
-        showlog.debug(f"*[BMLPF DEBUG] current_page_id: '{current_page_id}'")
-        showlog.debug(f"*[BMLPF DEBUG] msg_queue available: {msg_queue is not None}")
-        showlog.debug(f"*[BMLPF DEBUG] dials available: {dials is not None}")
-        showlog.debug(f"*[BMLPF DEBUG] dials count: {len(dials) if dials else 0}")
+        showlog.debug(f"[BMLPF DEBUG] current_device_name: '{current_device_name}'")
+        showlog.debug(f"[BMLPF DEBUG] current_device_id: '{current_device_id}'")
+        showlog.debug(f"[BMLPF DEBUG] current_page_id: '{current_page_id}'")
+        showlog.debug(f"[BMLPF DEBUG] msg_queue available: {msg_queue is not None}")
+        showlog.debug(f"[BMLPF DEBUG] dials available: {dials is not None}")
+        showlog.debug(f"[BMLPF DEBUG] dials count: {len(dials) if dials else 0}")
         
         # Check device config
         dev = devices.get("05")
         if dev:
-            showlog.debug(f"*[BMLPF DEBUG] devices.json config found: {dev.get('name')}")
-            showlog.debug(f"*[BMLPF DEBUG] devices.json pages: {list(dev.get('pages', {}).keys())}")
+            showlog.debug(f"[BMLPF DEBUG] devices.json config found: {dev.get('name')}")
+            showlog.debug(f"[BMLPF DEBUG] devices.json pages: {list(dev.get('pages', {}).keys())}")
         else:
-            showlog.error(f"*[BMLPF DEBUG] No device config found for ID '05' in devices.json")
+            showlog.error(f"[BMLPF DEBUG] No device config found for ID '05' in devices.json")
             
         # Check device file DEVICE_INFO
         try:
             if DEVICE_INFO:
-                showlog.debug(f"*[BMLPF DEBUG] Device file DEVICE_INFO found: {DEVICE_INFO.get('name')}")
-                showlog.debug(f"*[BMLPF DEBUG] Device file pages: {list(DEVICE_INFO.get('pages', {}).keys())}")
+                showlog.debug(f"[BMLPF DEBUG] Device file DEVICE_INFO found: {DEVICE_INFO.get('name')}")
+                showlog.debug(f"[BMLPF DEBUG] Device file pages: {list(DEVICE_INFO.get('pages', {}).keys())}")
                 
                 # Show stereo mappings
-                showlog.debug(f"*[BMLPF DEBUG] CV_MAP_STEREO: {CV_MAP_STEREO}")
-                showlog.debug(f"*[BMLPF DEBUG] CV_OFFSET_CONTROLS: {CV_OFFSET_CONTROLS}")
-                showlog.debug(f"*[BMLPF DEBUG] STEREO_OFFSET_LIMITS: {STEREO_OFFSET_LIMITS}")
-                showlog.debug(f"*[BMLPF DEBUG] Current base values: {_stereo_base_values}")
-                showlog.debug(f"*[BMLPF DEBUG] Current offset values: {_stereo_offset_values}")
+                showlog.debug(f"[BMLPF DEBUG] CV_MAP_STEREO: {CV_MAP_STEREO}")
+                showlog.debug(f"[BMLPF DEBUG] CV_OFFSET_CONTROLS: {CV_OFFSET_CONTROLS}")
+                showlog.debug(f"[BMLPF DEBUG] STEREO_OFFSET_LIMITS: {STEREO_OFFSET_LIMITS}")
+                showlog.debug(f"[BMLPF DEBUG] Current base values: {_stereo_base_values}")
+                showlog.debug(f"[BMLPF DEBUG] Current offset values: {_stereo_offset_values}")
         except NameError:
-            showlog.debug(f"*[BMLPF DEBUG] No DEVICE_INFO in device file")
+            showlog.debug(f"[BMLPF DEBUG] No DEVICE_INFO in device file")
             
         return True
         
     except Exception as e:
-        showlog.error(f"*[BMLPF DEBUG] Error in debug_current_state: {e}")
+        showlog.error(f"[BMLPF DEBUG] Error in debug_current_state: {e}")
         import traceback
-        showlog.debug(f"*[BMLPF DEBUG] Traceback: {traceback.format_exc()}")
+        showlog.debug(f"[BMLPF DEBUG] Traceback: {traceback.format_exc()}")
         return False
 
 # -----------------------------------------------------------
@@ -555,7 +555,7 @@ def handle_bmlpf_page_switch(button_id, msg_queue, dials):
     Handle page switching specifically for BMLPF device.
     This bypasses the hardcoded Quadraverb logic in dialhandlers.py
     """
-    showlog.verbose(f"*[BMLPF] handle_bmlpf_page_switch called with button_id={button_id}")
+    showlog.verbose(f"[BMLPF] handle_bmlpf_page_switch called with button_id={button_id}")
     
     try:
         import dialhandlers
@@ -737,9 +737,9 @@ def handle_bmlpf_page_switch(button_id, msg_queue, dials):
         return True
         
     except Exception as e:
-        showlog.error(f"*[BMLPF] Page switch error: {e}")
+        showlog.error(f"[BMLPF] Page switch error: {e}")
         import traceback
-        showlog.error(f"*[BMLPF] Full traceback: {traceback.format_exc()}")
+        showlog.error(f"[BMLPF] Full traceback: {traceback.format_exc()}")
         return False
 
 # -----------------------------------------------------------
@@ -750,93 +750,93 @@ def on_button_press(button_id: int):
     """Custom button actions for Behringer BM-11M."""
     global _trem_active, _trem_thread, _trem_2_active
     
-    showlog.debug(f"*[BMLPF] on_button_press called with button_id={button_id}")
+    showlog.debug(f"[BMLPF] on_button_press called with button_id={button_id}")
     
     # Debug current state for troubleshooting
     if button_id in [1, 2]:
-        showlog.debug(f"*[BMLPF] Running debug_current_state for button {button_id}")
+        showlog.debug(f"[BMLPF] Running debug_current_state for button {button_id}")
         debug_current_state()
     
     try:
         import dialhandlers
-        showlog.debug(f"*[BMLPF] dialhandlers imported successfully")
+        showlog.debug(f"[BMLPF] dialhandlers imported successfully")
         
         msg_queue = getattr(dialhandlers, "msg_queue", None)
         dials = getattr(dialhandlers, "dials", None)
         current_device_name = getattr(dialhandlers, "current_device_name", None)
         current_device_id = getattr(dialhandlers, "current_device_id", None)
         
-        showlog.debug(f"*[BMLPF] Retrieved from dialhandlers - msg_queue: {msg_queue is not None}, dials: {dials is not None}")
-        showlog.debug(f"*[BMLPF] current_device_name: '{current_device_name}', current_device_id: '{current_device_id}'")
+        showlog.debug(f"[BMLPF] Retrieved from dialhandlers - msg_queue: {msg_queue is not None}, dials: {dials is not None}")
+        showlog.debug(f"[BMLPF] current_device_name: '{current_device_name}', current_device_id: '{current_device_id}'")
         
         # Handle page switching for buttons 1 and 2
         if button_id in [1, 2]:
-            showlog.debug(f"*[BMLPF] Processing page switch button {button_id}")
+            showlog.debug(f"[BMLPF] Processing page switch button {button_id}")
             
             # Check if we're the current device
             if current_device_name != "BMLPF":
-                showlog.debug(f"*[BMLPF] Not current device (current: '{current_device_name}'), allowing default behavior")
+                showlog.debug(f"[BMLPF] Not current device (current: '{current_device_name}'), allowing default behavior")
                 return False
             
-            showlog.debug(f"*[BMLPF] BMLPF is current device, handling page switch")
+            showlog.debug(f"[BMLPF] BMLPF is current device, handling page switch")
             
             if msg_queue and dials:
-                showlog.debug(f"*[BMLPF] msg_queue and dials available, calling handle_bmlpf_page_switch")
+                showlog.debug(f"[BMLPF] msg_queue and dials available, calling handle_bmlpf_page_switch")
                 success = handle_bmlpf_page_switch(button_id, msg_queue, dials)
-                showlog.debug(f"*[BMLPF] handle_bmlpf_page_switch returned: {success}")
+                showlog.debug(f"[BMLPF] handle_bmlpf_page_switch returned: {success}")
                 if success:
-                    showlog.debug(f"*[BMLPF] Page switch successful, returning True")
+                    showlog.debug(f"[BMLPF] Page switch successful, returning True")
                     return True  # We handled it
                 else:
-                    showlog.debug(f"*[BMLPF] Page switch failed, falling back to default")
+                    showlog.debug(f"[BMLPF] Page switch failed, falling back to default")
                     return False  # Let system try default behavior
             else:
-                showlog.error(f"*[BMLPF] msg_queue or dials not available - msg_queue: {msg_queue is not None}, dials: {dials is not None}")
+                showlog.error(f"[BMLPF] msg_queue or dials not available - msg_queue: {msg_queue is not None}, dials: {dials is not None}")
                 return False
 
         if button_id == 4:  
-            showlog.debug(f"*[BMLPF] Processing tremolo button {button_id}")
+            showlog.debug(f"[BMLPF] Processing tremolo button {button_id}")
             # Button 4: tremolo toggle
             if not _trem_2_active:
                 _trem_2_active = True
                 cv_client.send_raw("VIBEON 16 8.0")
-                showlog.debug(f"*[BMLPF] Tremolo activated, _trem_2_active: {_trem_2_active}")
-                showlog.info("*[BMLPF] Button 4 pressed Trem ON")
+                showlog.debug(f"[BMLPF] Tremolo activated, _trem_2_active: {_trem_2_active}")
+                showlog.info("[BMLPF] Button 4 pressed Trem ON")
                 return True
             else:
                 _trem_2_active = False
                 cv_client.send_raw("VIBEOFF 16")
-                showlog.debug(f"*[BMLPF] Tremolo deactivated, _trem_2_active: {_trem_2_active}")
-                showlog.info("*[BMLPF] Button 4 released Trem OFF")
+                showlog.debug(f"[BMLPF] Tremolo deactivated, _trem_2_active: {_trem_2_active}")
+                showlog.info("[BMLPF] Button 4 released Trem OFF")
                 return True
             
         if button_id == 5:
-            showlog.debug(f"*[BMLPF] Processing vibrato navigation button {button_id}")
+            showlog.debug(f"[BMLPF] Processing vibrato navigation button {button_id}")
             # Button 5: vibrato page navigation
             import queue
             showlog.info("[BMLPF] Vibrato page requested via Button 5")
             
             try:
                 q = getattr(dialhandlers, "msg_queue", None)
-                showlog.debug(f"*[BMLPF] Got msg_queue for vibrato: {q is not None}, type: {type(q)}")
+                showlog.debug(f"[BMLPF] Got msg_queue for vibrato: {q is not None}, type: {type(q)}")
                 if isinstance(q, queue.Queue):
                     q.put(("entity_select", "vibrato"))
                     q.put("[NAV] UI mode changed to VIBRATO")
-                    showlog.debug("*[BMLPF] Queued vibrato navigation messages")
+                    showlog.debug("[BMLPF] Queued vibrato navigation messages")
                 else:
-                    showlog.error(f"*[BMLPF] msg_queue not available or wrong type: {type(q)}")
+                    showlog.error(f"[BMLPF] msg_queue not available or wrong type: {type(q)}")
             except Exception as e:
-                showlog.error(f"*[BMLPF] Vibrato button error: {e}")
+                showlog.error(f"[BMLPF] Vibrato button error: {e}")
                 import traceback
-                showlog.debug(f"*[BMLPF] Vibrato error traceback: {traceback.format_exc()}")
+                showlog.debug(f"[BMLPF] Vibrato error traceback: {traceback.format_exc()}")
             return True
 
         # Allow normal behavior for other buttons
-        showlog.debug(f"*[BMLPF] Button {button_id} not handled by BMLPF, returning False for default behavior")
+        showlog.debug(f"[BMLPF] Button {button_id} not handled by BMLPF, returning False for default behavior")
         return False
         
     except Exception as e:
-        showlog.error(f"*[BMLPF] Button press error: {e}")
+        showlog.error(f"[BMLPF] Button press error: {e}")
         import traceback
-        showlog.debug(f"*[BMLPF] Button press error traceback: {traceback.format_exc()}")
+        showlog.debug(f"[BMLPF] Button press error traceback: {traceback.format_exc()}")
         return False

@@ -4,9 +4,10 @@ For troubleshooting or low-resource scenarios.
 """
 
 # Safe mode performance (very conservative)
-FPS_NORMAL = 10
-FPS_TURBO = 20          # Much slower turbo
-FPS_LOW = 5
+FPS_LOW    = 5           # Static pages
+FPS_NORMAL = 10          # Normal pages
+FPS_HIGH   = 20          # MIDI/CV pages in safe mode
+FPS_BURST  = 20          # Much slower burst for safe mode
 
 # Minimal logging (errors only)
 LOG_LEVEL = 0           # ERROR only

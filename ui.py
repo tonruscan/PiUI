@@ -12,7 +12,7 @@ import crashguard  # Must come first
 crashguard.checkpoint("Crashguard imported")
 
 import sys
-crashguard.checkpoint("sys imported")
+crashguard.checkpoint("sys imported")   
 
 try:
     from core.app import UIApplication
@@ -24,11 +24,11 @@ except Exception as e:
     raise
 
 
-def main():
+def main(): 
     """
     Application entry point.
         
-    Initializes and runs the UI application.
+    Initializes and runs the UI application.    
     All subsystem initialization and event loop management
     is handled by the UIApplication class.
     """

@@ -6,6 +6,11 @@
       { "id": 3, "img": "icons/psr.png", "label": "PSR-36" },
       { "id": 4, "img": "icons/ct660.png", "label": "CT-660" },
       { "id": 5, "img": "icons/bmlpf.png", "label": "BMLPF" },
+      { "id": 6, "img": "icons/vk8m.png", "label": "VK-8M", "plugin": "vk8m_main" },
+      { "id": 7, "img": "icons/ascii.png", "label": "ASCII Animator", "plugin": "ascii_animator" },
+      { "id": 8, "img": "icons/drumbo.png", "label": "Drumbo", "plugin": "drumbo_main" },
+      { "id": 9, "img": "assets/images/unknown_device.png", "label": "Dual Widget Demo", "plugin": "dual_widget_demo" },
+      { "id": 10, "img": "assets/images/unknown_device.png", "label": "Spectra Switch", "plugin": "spectra_switch" },
       { "id": 99, "img": "icons/patchbay.png", "label": "Patchbay" }
     ]
   }

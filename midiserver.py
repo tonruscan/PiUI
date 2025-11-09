@@ -19,10 +19,10 @@ def _get_midi():
     return _midi
 
 
-def init(dial_cb=None, sysex_cb=None):
+def init(dial_cb=None, sysex_cb=None, note_cb=None):
     midi = _get_midi()
     if midi:
-        midi.init(dial_cb, sysex_cb)
+        midi.init(dial_cb, sysex_cb, note_cb)
 
 
 def send_cc(channel, cc_num, value):
@@ -37,10 +37,17 @@ def send_program_change(program_num, channel=None):
         midi.send_program_change(program_num, channel)
 
 
-def send_sysex(data):
+def send_sysex(data, device=None):
     midi = _get_midi()
     if midi:
-        midi.send_sysex(data)
+        midi.send_sysex(data, device)
+
+
+def set_device_context(device_name):
+    """Set current device context for automatic routing tag insertion."""
+    midi = _get_midi()
+    if midi:
+        midi.set_device_context(device_name)
 
 
 def enqueue_device_message(device_name, dial_index, value, param_range=127,

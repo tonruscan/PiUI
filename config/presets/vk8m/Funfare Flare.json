@@ -1,0 +1,29 @@
+{
+  "page_id": "vk8m",
+  "preset_name": "Funfare Flare",
+  "variables": {
+    "distortion_value": 20,
+    "reverb_value": 74
+  },
+  "widget_state": {
+    "bar_values": [
+      7,
+      0,
+      0,
+      8,
+      0,
+      8,
+      5,
+      0,
+      0
+    ]
+  },
+  "button_states": {
+    "1": 6,
+    "2": 0,
+    "3": 2,
+    "4": 1,
+    "5": 0,
+    "8": 1
+  }
+}

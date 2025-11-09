@@ -226,7 +226,7 @@ class Vibrato(ModuleBase):
                 self.current_hz = param
                 self._apply_widget_calibration()
                 channels = self._get_active_channels()
-                showlog.info(f"*[Vibrato] ON @ division {param} ({label} at {bpm} BPM) on channels {channels}")
+                showlog.info(f"[Vibrato] ON @ division {param} ({label} at {bpm} BPM) on channels {channels}")
             else:
                 # Turn off all possible channels
                 for ch in [16, 17]:
@@ -349,7 +349,7 @@ class Vibrato(ModuleBase):
             for ch in channels:
                 self.cv_send(f"VIBEON {ch} {self.current_hz}")
             
-            showlog.debug(f"*[Vibrato] Updated rate to {self.current_hz} Hz ({label} @ {bpm} BPM) on channels {channels}")
+            showlog.debug(f"[Vibrato] Updated rate to {self.current_hz} Hz ({label} @ {bpm} BPM) on channels {channels}")
 
 
 
@@ -450,7 +450,7 @@ class Vibrato(ModuleBase):
     #         showlog.verbose(f"[Vibrato] channel={channel!r} (src={channel_src})")
 
     #         if channel is None:
-    #             showlog.warn("* [Vibrato] No DAC channel resolved — cannot send calibration")
+    #             showlog.warn(" [Vibrato] No DAC channel resolved — cannot send calibration")
     #             return
 
     #         # 9) send ONLY to server; DO NOT mutate device.CV_CALIB in memory

@@ -19,6 +19,7 @@ class HardwareMixin:
         self.hardware_initializer.initialize_all(
             midi_cc_callback=dialhandlers.on_midi_cc,
             midi_sysex_callback=dialhandlers.on_midi_sysex,
+            midi_note_callback=dialhandlers.on_midi_note,
             screen=self.screen
         )
         

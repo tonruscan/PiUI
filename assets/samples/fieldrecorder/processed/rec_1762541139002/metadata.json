@@ -1,0 +1,39 @@
+{
+  "recording_id": "rec_1762541139002",
+  "source_path": "/home/jaine/share/UI/build/assets/samples/fieldrecorder/rec_1762541139002.m4a",
+  "converted_path": "/home/jaine/share/UI/build/assets/samples/fieldrecorder/processed/rec_1762541139002/rec_1762541139002.wav",
+  "metadata_path": "/home/jaine/share/UI/build/assets/samples/fieldrecorder/processed/rec_1762541139002/metadata.json",
+  "sample_rate": 44100,
+  "channels": 1,
+  "sample_width": 2,
+  "created_at": "2025-11-07T19:52:45.507263Z",
+  "slice_count": 2,
+  "slices": [
+    {
+      "index": 0,
+      "path": "/home/jaine/share/UI/build/assets/samples/fieldrecorder/processed/rec_1762541139002/slices/rec_1762541139002_slice_01.wav",
+      "start_ms": 1280.0,
+      "end_ms": 1380.0,
+      "duration_ms": 100.0,
+      "peak_amplitude": 9992.0,
+      "peak_db": -10.315685115512396,
+      "rms_db": -23.885053076787695,
+      "peak_normalized": 0.30494094668416394,
+      "status": "pending",
+      "label": null
+    },
+    {
+      "index": 1,
+      "path": "/home/jaine/share/UI/build/assets/samples/fieldrecorder/processed/rec_1762541139002/slices/rec_1762541139002_slice_02.wav",
+      "start_ms": 1460.0,
+      "end_ms": 1730.0,
+      "duration_ms": 270.0,
+      "peak_amplitude": 16221.0,
+      "peak_db": -6.107181136928238,
+      "rms_db": -18.18971047153652,
+      "peak_normalized": 0.49504074221015043,
+      "status": "pending",
+      "label": null
+    }
+  ]
+}

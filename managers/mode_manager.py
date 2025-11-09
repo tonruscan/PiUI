@@ -5,12 +5,9 @@ Handles UI mode switching and page transitions.
 """
 
 from typing import Optional, Callable
-import importlib
-
 import navigator
 import dialhandlers
 import showlog
-import config as cfg
 from managers.preset_manager import UnifiedPresetManager
 
 
@@ -83,11 +80,13 @@ class ModeManager:
             count: Number of frames to force full redraw
         """
         self._full_frames_left = max(self._full_frames_left, count)
+        showlog.debug(f"[MODE_MGR] Requested {count} full frames, total={self._full_frames_left}")
     
     def needs_full_frame(self) -> bool:
         """Check if a full frame redraw is needed."""
         if self._full_frames_left > 0:
             self._full_frames_left -= 1
+            showlog.debug(f"[MODE_MGR] needs_full_frame=True, remaining={self._full_frames_left}")
             return True
         return False
     
@@ -132,8 +131,23 @@ class ModeManager:
             self._setup_mixer()
         elif new_mode == "vibrato":
             self._setup_vibrato()
+        elif new_mode == "vk8m_main":
+            self._setup_vk8m()
+        elif new_mode == "ascii_animator":
+            self._setup_ascii_animator()
+        elif new_mode == "drumbo":
+            self._setup_drumbo()
+        elif new_mode == "drumbo_main":
+            self._setup_drumbo()
+        elif new_mode == "test_minimal_main":
+            self._setup_test_minimal()
         elif new_mode == "module_presets":
             self._setup_module_presets()
+        elif new_mode == "dual_widget_demo":
+            self._setup_dual_widget_demo()
+        elif new_mode == "spectra_switch":
+            self._setup_spectra_switch()
+
         
         # Clear the from-mode block after setup completes
         self._transitioning_from_mode = None
@@ -141,6 +155,13 @@ class ModeManager:
         # Request full frames for transition (except dials - handled internally)
         if new_mode != "dials":
             self.request_full_frames(3)
+
+        if self.prev_mode == "module_presets":
+            try:
+                from pages import module_base
+                module_base.request_custom_widget_redraw(include_overlays=True)
+            except Exception as redraw_err:
+                showlog.debug(f"[MODE_MGR] Deferred widget redraw failed: {redraw_err}")
     
     def _handle_navigation(self, new_mode: str):
         """
@@ -158,7 +179,7 @@ class ModeManager:
                 record = True
             elif new_mode == "presets":
                 record = True
-            elif new_mode in ("patchbay", "text_input", "mixer", "vibrato", "module_presets"):
+            elif new_mode in ("patchbay", "text_input", "mixer", "vibrato", "vk8m_main", "ascii_animator", "drumbo", "drumbo_main", "test_minimal_main", "module_presets"):
                 record = True
             
             navigator.set_page(new_mode, record=record)
@@ -208,7 +229,7 @@ class ModeManager:
         Args:
             device_behavior_map: Device behavior map reference
         """
-        showlog.verbose(f"*[MODE_MGR] Entering Dials (prev_mode={self.prev_mode})")
+        showlog.verbose(f"[MODE_MGR] Entering Dials (prev_mode={self.prev_mode})")
         
         device_name = getattr(dialhandlers, "current_device_name", None)
         
@@ -232,7 +253,7 @@ class ModeManager:
             new_map = device_behavior_map.get(device_name.upper())
             if new_map:
                 self.button_manager.set_button_behavior_map(new_map)
-                showlog.verbose(f"*[MODE_MGR] Reloaded behavior map for {device_name}")
+                showlog.verbose(f"[MODE_MGR] Reloaded behavior map for {device_name}")
             else:
                 # Lazy load from device module
                 try:
@@ -244,7 +265,7 @@ class ModeManager:
                             device_behavior_map[device_name.upper()] = loaded_map
                         self.button_manager.set_button_behavior_map(loaded_map)
                 except Exception as e:
-                    showlog.verbose(f"*[MODE_MGR] Failed to load behavior: {e}")
+                    showlog.verbose(f"[MODE_MGR] Failed to load behavior: {e}")
         
         # Rebuild dials (creates dial objects with generic labels)
         # DO NOT pass device_name - we don't want REGISTRY to set page 1 labels
@@ -398,6 +419,45 @@ class ModeManager:
         if self.preset_manager:
             self.preset_manager.init_for_device(device_name, page_id)
     
+
+# --- setup methods for additional modes ---
+
+    def _setup_dual_widget_demo(self):
+        self.header_text = "Dual Widget Demo"
+
+        from pages import module_base as page
+        from plugins.dual_widget_demo_plugin import DualWidgetDemoModule
+
+        page.set_active_module(DualWidgetDemoModule)
+
+        if hasattr(page, "init_page"):
+            page.init_page()
+
+    def _setup_spectra_switch(self):
+        self.header_text = "Spectra Switch"
+        from pages import module_base as page
+        from plugins.spectra_switch_plugin import SpectraSwitchModule
+        from system import cc_registry
+        import unit_router
+
+        page.set_active_module(SpectraSwitchModule)
+
+        try:
+            cc_registry.load_from_module(SpectraSwitchModule.MODULE_ID, SpectraSwitchModule.REGISTRY)
+        except Exception as exc:
+            showlog.warn(f"[MODE_MGR] Spectra registry load failed: {exc}")
+
+        if hasattr(page, "init_page"):
+            page.init_page()
+
+        try:
+            unit_router.load_module(SpectraSwitchModule.MODULE_ID, page.handle_hw_dial)
+        except Exception as exc:
+            showlog.warn(f"[MODE_MGR] Failed to bind Spectra hardware dials: {exc}")
+
+
+
+
     def _setup_patchbay(self):
         """Setup for patchbay mode."""
         self.header_text = "Patchbay"
@@ -416,7 +476,11 @@ class ModeManager:
         try:
             from system import cc_registry
             from pages import module_base as vibrato
+            from plugins.vibrato_plugin import Vibrato
             import unit_router
+            
+            # Set the active module for module_base BEFORE init_page
+            vibrato.set_active_module(Vibrato)
             
             cc_registry.load_from_device("vibrato")
             
@@ -430,23 +494,148 @@ class ModeManager:
         except Exception as e:
             showlog.error(f"[MODE_MGR] Failed to activate Vibrato: {e}")
     
+    def _setup_vk8m(self):
+        """Setup for VK8M mode."""
+        self.header_text = "Roland VK-8M"
+        showlog.debug("[MODE_MGR] Switched to VK-8M")
+        
+        try:
+            from system import cc_registry
+            from pages import module_base as vk8m_page
+            from plugins.vk8m_plugin import VK8M
+            import unit_router
+            
+            # Set the active module for module_base BEFORE init_page
+            vk8m_page.set_active_module(VK8M)
+            
+            # Set device context for MIDI routing tags
+            try:
+                import midiserver
+                midiserver.set_device_context("VK8M")
+            except Exception as e:
+                showlog.warn(f"[MODE_MGR] Could not set MIDI device context: {e}")
+            
+            cc_registry.load_from_device("vk8m")
+            
+            showlog.info(f"*[MODE_MGR] 🔄 VK8M: Checking if vk8m_page has init_page: {hasattr(vk8m_page, 'init_page')}")
+            if hasattr(vk8m_page, "init_page"):
+                showlog.info(f"*[MODE_MGR] 🔄 VK8M: Calling vk8m_page.init_page()")
+                vk8m_page.init_page()
+                showlog.info(f"*[MODE_MGR] ✅ VK8M: Page initialized - _PRESET_UI should now exist")
+            else:
+                showlog.warn(f"[MODE_MGR] VK8M page does not have init_page() method!")
+            
+            unit_router.load_module("vk8m", vk8m_page.handle_hw_dial)
+            showlog.debug("[MODE_MGR] VK8M module active")
+            
+        except Exception as e:
+            showlog.error(f"[MODE_MGR] Failed to activate VK8M: {e}")
+    
+    def _setup_ascii_animator(self):
+        """Setup for ASCII Animator mode."""
+        self.header_text = "ASCII Animator"
+        showlog.debug("[MODE_MGR] Switched to ASCII Animator")
+        
+        try:
+            from pages import module_base as page
+            from plugins.ascii_animator_plugin import ASCIIAnimatorModule
+            
+            # Set the active module for module_base BEFORE init_page
+            page.set_active_module(ASCIIAnimatorModule)
+            
+            # Initialize page
+            if hasattr(page, "init_page"):
+                page.init_page()
+            
+            showlog.debug("[MODE_MGR] ASCII Animator module active")
+            
+        except Exception as e:
+            showlog.error(f"[MODE_MGR] Failed to activate ASCII Animator: {e}")
+            import traceback
+            showlog.error(traceback.format_exc())
+    
+    def _setup_drumbo(self):
+        """Setup for Drumbo drum machine mode."""
+        self.header_text = "Drumbo"
+        showlog.debug("[MODE_MGR] Switched to Drumbo")
+        
+        try:
+            from pages import module_base as page
+            from plugins.sampler.instruments.drumbo.module import DrumboInstrument
+            
+            # Set the active module for module_base BEFORE init_page
+            page.set_active_module(DrumboInstrument)
+            
+            # Initialize page
+            if hasattr(page, "init_page"):
+                page.init_page()
+            
+            showlog.debug("[MODE_MGR] Drumbo module active")
+            
+        except Exception as e:
+            showlog.error(f"[MODE_MGR] Failed to activate Drumbo: {e}")
+            import traceback
+            showlog.error(traceback.format_exc())
+    
+    def _setup_test_minimal(self):
+        """Setup for test minimal mode."""
+        self.header_text = "Test Minimal"
+        showlog.debug("[MODE_MGR] Switched to Test Minimal")
+        
+        try:
+            from pages import module_base as page
+            from plugins.test_minimal_plugin import TestMinimal
+            
+            page.set_active_module(TestMinimal)
+            
+            if hasattr(page, "init_page"):
+                page.init_page()
+            
+            showlog.debug("[MODE_MGR] Test Minimal module active")
+            
+        except Exception as e:
+            showlog.error(f"[MODE_MGR] Failed to activate Test Minimal: {e}")
+            import traceback
+            showlog.error(traceback.format_exc())
+
+        
+    
     def _setup_module_presets(self):
         """Setup for module_presets mode."""
         self.header_text = "Load Preset"
-        showlog.debug("[MODE_MGR] Switched to Module Presets")
+        showlog.debug("[MODE_MGR] === SETUP MODULE PRESETS ===")
         
         # Use unified preset manager for module presets
         if self.preset_manager:
             try:
-                # Get module info from module_base (vibrato)
-                from pages import module_base as vibrato
+                # Get module info from module_base (supports vibrato, vk8m, etc.)
+                from pages import module_base
                 
+                showlog.debug("[MODE_MGR] Getting active module instance...")
                 # Get the active module instance and widget
-                module_instance = vibrato._get_mod_instance()
-                module_id = getattr(module_instance, "MODULE_ID", "vibrato") if module_instance else "vibrato"
-                widget = getattr(vibrato, "_WIDGET_INSTANCE", None)
+                module_instance = module_base._get_mod_instance()
+                showlog.debug(f"[MODE_MGR] module_instance: {module_instance}")
+                showlog.debug(f"[MODE_MGR] module_instance type: {type(module_instance)}")
                 
+                if module_instance:
+                    module_id = getattr(module_instance, "MODULE_ID", None)
+                    showlog.debug(f"[MODE_MGR] Got MODULE_ID from instance: {module_id}")
+                else:
+                    module_id = None
+                    showlog.debug("[MODE_MGR] No module instance found!")
+                
+                # Fallback to module attribute if instance doesn't have it
+                if not module_id:
+                    module_id = module_base._get_module_attr("MODULE_ID", "unknown")
+                    showlog.debug(f"[MODE_MGR] Fallback MODULE_ID from module attr: {module_id}")
+                
+                widget = getattr(module_base, "_CUSTOM_WIDGET_INSTANCE", None)
+                showlog.debug(f"[MODE_MGR] widget: {widget}")
+                
+                showlog.debug(f"[MODE_MGR] Calling init_for_module with module_id='{module_id}'")
                 self.preset_manager.init_for_module(module_id, module_instance, widget)
                 showlog.debug(f"[MODE_MGR] Module presets initialized for {module_id}")
             except Exception as e:
                 showlog.error(f"[MODE_MGR] Failed to init module presets: {e}")
+                import traceback
+                showlog.error(f"[MODE_MGR] Traceback: {traceback.format_exc()}")

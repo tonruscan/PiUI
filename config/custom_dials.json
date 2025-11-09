@@ -7,11 +7,179 @@
     "page": 0,
     "options": ["1", "1/2", "1/4", "1/8", "1/16", "1/32"]
   },
-    "vibrato_depth": {
+  "vibrato_depth": {
     "label": "Depth",
     "cc": 17,
     "range": [0, 100],
     "type": "raw",
     "page": 0
+  },
+  "main_dial_1": {
+    "label": "Main 1",
+    "range": [0, 127],
+    "type": "raw",
+    "page": 0
+  },
+  "main_dial_2": {
+    "label": "Main 2",
+    "range": [0, 127],
+    "type": "raw",
+    "page": 0
+  },
+  "drawbar_speed": {
+    "label": "Speed",
+    "range": [10, 200],
+    "type": "raw",
+    "page": 0,
+    "description": "Drawbar animation speed (10-200 ms per frame)",
+    "visual_mode": "hidden"
+  },
+  "distortion": {
+    "label": "Distortion",
+    "range": [0, 127],
+    "type": "raw",
+    "page": 0,
+    "description": "VK-8M Distortion Level"
+  },
+  "reverb_level": {
+    "label": "Reverb",
+    "range": [0, 127],
+    "type": "raw",
+    "page": 0,
+    "description": "VK-8M Reverb Level"
+  },
+  "leakage": {
+    "label": "Leakage",
+    "range": [0, 127],
+    "type": "raw",
+    "page": 0,
+    "description": "VK-8M Tonewheel Leakage"
+  },
+  "mic_1": {
+    "label": "M1",
+    "range": [0, 127],
+    "type": "raw",
+    "page": 0,
+    "description": "Drumbo Mic 1 Level"
+  },
+  "mic_2": {
+    "label": "M2",
+    "range": [0, 127],
+    "type": "raw",
+    "page": 0,
+    "description": "Drumbo Mic 2 Level"
+  },
+  "mic_3": {
+    "label": "M3",
+    "range": [0, 127],
+    "type": "raw",
+    "page": 0,
+    "description": "Drumbo Mic 3 Level"
+  },
+  "mic_4": {
+    "label": "M4",
+    "range": [0, 127],
+    "type": "raw",
+    "page": 0,
+    "description": "Drumbo Mic 4 Level"
+  },
+  "mic_5": {
+    "label": "M5",
+    "range": [0, 127],
+    "type": "raw",
+    "page": 0,
+    "description": "Drumbo Mic 5 Level"
+  },
+  "mic_6": {
+    "label": "M6",
+    "range": [0, 127],
+    "type": "raw",
+    "page": 0,
+    "description": "Drumbo Mic 6 Level"
+  },
+  "mic_7": {
+    "label": "M7",
+    "range": [0, 127],
+    "type": "raw",
+    "page": 0,
+    "description": "Drumbo Mic 7 Level"
+  },
+  "mic_8": {
+    "label": "M8",
+    "range": [0, 127],
+    "type": "raw",
+    "page": 0,
+    "description": "Drumbo Mic 8 Level"
+  },
+  "mic_9": {
+    "label": "M9",
+    "range": [0, 127],
+    "type": "raw",
+    "page": 0,
+    "description": "Drumbo Mic 9 Level"
+  },
+  "mic_10": {
+    "label": "M10",
+    "range": [0, 127],
+    "type": "raw",
+    "page": 0,
+    "description": "Drumbo Mic 10 Level"
+  },
+  "mic_11": {
+    "label": "M11",
+    "range": [0, 127],
+    "type": "raw",
+    "page": 0,
+    "description": "Drumbo Mic 11 Level"
+  },
+  "mic_12": {
+    "label": "M12",
+    "range": [0, 127],
+    "type": "raw",
+    "page": 0,
+    "description": "Drumbo Mic 12 Level"
+  },
+  "mic_13": {
+    "label": "M13",
+    "range": [0, 127],
+    "type": "raw",
+    "page": 0,
+    "description": "Drumbo Mic 13 Level"
+  },
+  "mic_14": {
+    "label": "M14",
+    "range": [0, 127],
+    "type": "raw",
+    "page": 0,
+    "description": "Drumbo Mic 14 Level"
+  },
+  "mic_15": {
+    "label": "M15",
+    "range": [0, 127],
+    "type": "raw",
+    "page": 0,
+    "description": "Drumbo Mic 15 Level"
+  },
+  "mic_16": {
+    "label": "M16",
+    "range": [0, 127],
+    "type": "raw",
+    "page": 0,
+    "description": "Drumbo Mic 16 Level"
+  },
+  "spectra_main_1": {
+    "label": "Spectra Main 1",
+    "range": [0, 127],
+    "type": "raw",
+    "page": 0,
+    "description": "Spectra Switch primary dial"
+  },
+  "spectra_main_2": {
+    "label": "Spectra Main 2",
+    "range": [0, 127],
+    "type": "raw",
+    "page": 0,
+    "description": "Spectra Switch secondary dial"
   }
 }
+

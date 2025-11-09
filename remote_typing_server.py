@@ -15,16 +15,18 @@ PORT = 8765
 
 def run_server(msg_queue, screen=None):
     """Blocking server loop that listens for remote keystrokes."""
+    showlog.debug("[REMOTE_TYPING] Starting remote typing server...")
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             s.bind((HOST, PORT))
             s.listen(1)
-            showlog.log(screen, f"Listening on {HOST}:{PORT}")
+            showlog.debug(f"[REMOTE_TYPING] Listening on {HOST}:{PORT}")
 
             while True:
+                showlog.debug("[REMOTE_TYPING] Waiting for connection...")
                 conn, addr = s.accept()
-                showlog.log(screen, f"[REMOTE_TYPING] Connection from {addr}")
+                showlog.debug(f"[REMOTE_TYPING] Connection from {addr}")
 
                 with conn:
                     try:
@@ -42,14 +44,17 @@ def run_server(msg_queue, screen=None):
                                     msg = json.loads(line.decode("utf-8"))
                                     char = msg.get("text")
                                     if char:
+                                        showlog.info(f"*** [REMOTE_TYPING] RECEIVED CHAR FROM PC: '{char}' (repr: {repr(char)}) ***")
+                                        showlog.debug(f"[REMOTE_TYPING] Received char: '{char}', putting in queue")
                                         msg_queue.put(("remote_char", char))
+                                        showlog.debug(f"[REMOTE_TYPING] Message queued successfully")
                                 except Exception as e:
-                                    showlog.log(screen, f"[REMOTE_TYPING] JSON error: {e}")
+                                    showlog.log(f"[REMOTE_TYPING] JSON error: {e}")
 
                     except Exception as e:
-                        showlog.log(screen, f"[REMOTE_TYPING] Connection error: {e}")
+                        showlog.error(f"[REMOTE_TYPING] Connection error: {e}")
                     finally:
-                        showlog.log(screen, f"[REMOTE_TYPING] Disconnected {addr}")
+                        showlog.warn(f"[REMOTE_TYPING] Disconnected {addr}")
 
     except Exception as e:
-        showlog.log(screen, f"[REMOTE_TYPING] Server error: {e}")
+        showlog.error(f"[REMOTE_TYPING] Server error: {e}")

@@ -9,6 +9,15 @@ import showlog
 
 import logit
 
+# Plugin metadata for rendering system
+PLUGIN_METADATA = {
+    "rendering": {
+        "fps_mode": "low",               # Static page, 12 FPS is enough
+        "supports_dirty_rect": False,    # Complex wiring diagram
+        "requires_full_frame": True,     # Always redraw entire page
+    }
+}
+
 # --- set globals 
 
 # --- Editing state flags ---
@@ -154,8 +163,16 @@ def save_connections(mapping: dict[int, int]) -> None:
 def draw_ui(screen, exit_rect, header_text, pressed_button=None, offset_y=0):
     """Draw the Patchbay page with dropdown offset support."""
     global active_sockets, input_text
+    
+    # --- Clear background (avoid log bar area) ---
+    log_bar_h = getattr(cfg, "LOG_BAR_HEIGHT", 20)
+    screen.fill((30, 30, 30), pygame.Rect(0, 0, screen.get_width(), screen.get_height() - log_bar_h))
 
-    screen.fill((30, 30, 30))
+    # --- Restrict drawing area to avoid covering log bar ---
+    log_bar_h = getattr(cfg, "LOG_BAR_HEIGHT", 20)
+    clip_rect = pygame.Rect(0, 0, screen.get_width(), screen.get_height() - log_bar_h)
+    screen.set_clip(clip_rect)
+
 
     # --- match Presets/Dials pattern: slide content by header dropdown offset ---
     def sy(y):
@@ -424,6 +441,10 @@ def draw_ui(screen, exit_rect, header_text, pressed_button=None, offset_y=0):
             label_surface = font.render(display_text, True, color)
             label_rect = label_surface.get_rect(center=(x, y - socket_radius - offset))
             screen.blit(label_surface, label_rect)
+        
+        # --- Restore full drawing area ---
+    screen.set_clip(None)
+
 
            
 

@@ -1,0 +1,8 @@
+{
+  "status": "error",
+  "recording_id": "rec_1762541180660",
+  "source_path": "/home/jaine/share/UI/build/assets/samples/fieldrecorder/rec_1762541180660.m4a",
+  "metadata_path": "/home/jaine/share/UI/build/assets/samples/fieldrecorder/processed/rec_1762541180660/metadata.json",
+  "created_at": "2025-11-07T21:39:35.937081Z",
+  "error_message": "ffmpeg failed (1): moov atom not found (file appears incomplete or truncated)"
+}

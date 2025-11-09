@@ -36,10 +36,21 @@ class VibratoPlugin(Plugin):
         """Register Vibrato page with PageRegistry."""
         try:
             from pages import module_base as vibrato_page
+            
+            # Note: set_active_module() is called by mode_manager when page is entered
+            
+            # Plugin rendering metadata
+            rendering_meta = {
+                "fps_mode": "high",              # Needs 100 FPS for smooth animation
+                "supports_dirty_rect": True,     # Uses dirty rect optimization
+                "burst_multiplier": 1.0,         # Standard burst behavior
+            }
+            
             app.page_registry.register(
                 self.page_id,
                 vibrato_page,
-                label=self.name
+                label=self.name,
+                meta={"rendering": rendering_meta}
             )
             showlog.info(f"[VibratoPlugin] Registered page '{self.page_id}'")
         except Exception as e:
@@ -90,6 +101,27 @@ def notify_bmlpf_stereo_offset_change():
 class Vibrato(ModuleBase):
     MODULE_ID = "vibrato"
     FAMILY = "vibrato"
+    
+    # Custom widget configuration
+    CUSTOM_WIDGET = {
+        "class": "VibratoField",
+        "path": "widgets.adsr_widget",
+        "grid_size": [3, 2],  # width, height in grid cells
+        "state_vars": ["a_y", "b_x", "b_y"]  # Widget state variables (now handled via get_state/set_from_state)
+    }
+
+    # Grid layout for dials (rows, cols)
+    GRID_LAYOUT = {
+        "rows": 2,
+        "cols": 4
+    }
+
+    # Grid zones for debug overlay and zone-based positioning
+    GRID_ZONES = [
+        {"id": "A", "row": 0, "col": 0, "w": 1, "h": 1, "color": (255,   0,   0, 100)},  # top-left 1×1
+        {"id": "B", "row": 1, "col": 0, "w": 1, "h": 1, "color": (  0, 255,   0, 100)},  # below-left 1×1
+        {"id": "C", "row": 0, "col": 1, "w": 3, "h": 2, "color": (  0,   0, 255, 100)},  # right 3×2
+    ]
 
     # Registry payload - now includes preset variable mapping
     REGISTRY = {
@@ -127,6 +159,25 @@ class Vibrato(ModuleBase):
         {"id": "9", "label": "S", "behavior": "nav", "action": "save_preset"},
         {"id": "10", "label": "10", "behavior": "nav", "action": "device_select"},
     ]
+    
+    # Slot to control mapping for dial ownership
+    SLOT_TO_CTRL = {
+        1: "vibrato_time_fraction",
+    }
+    
+    # Custom widget configuration
+    CUSTOM_WIDGET = {
+        "class": "VibratoField",
+        "path": "widgets.adsr_widget",
+        "grid_size": [3, 2],  # width, height in grid cells
+        "state_vars": ["a_y", "b_x", "b_y"]  # Widget state variables
+    }
+    
+    # Grid layout for dials (rows, cols)
+    GRID_LAYOUT = {
+        "rows": 2,
+        "cols": 4
+    }
 
 
 
@@ -267,7 +318,7 @@ class Vibrato(ModuleBase):
                 self.current_hz = param
                 self._apply_widget_calibration()
                 channels = self._get_active_channels()
-                showlog.info(f"*[Vibrato] ON @ division {param} ({label} at {bpm} BPM) on channels {channels}")
+                showlog.info(f"[Vibrato] ON @ division {param} ({label} at {bpm} BPM) on channels {channels}")
             else:
                 # Turn off all possible channels
                 for ch in [16, 17]:
@@ -390,7 +441,7 @@ class Vibrato(ModuleBase):
             for ch in channels:
                 self.cv_send(f"VIBEON {ch} {self.current_hz}")
             
-            showlog.debug(f"*[Vibrato] Updated rate to {self.current_hz} Hz ({label} @ {bpm} BPM) on channels {channels}")
+            showlog.debug(f"[Vibrato] Updated rate to {self.current_hz} Hz ({label} @ {bpm} BPM) on channels {channels}")
 
 
     def _apply_widget_calibration(self, state=None):

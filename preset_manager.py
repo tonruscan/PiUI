@@ -62,11 +62,13 @@ class PresetManager:
         Returns:
             Configuration dict or None if not found
         """
+        showlog.debug(f"*[PresetManager] get_page_config called for page_id='{page_id}'")
+        
         # Priority 1: Check if module defines PRESET_STATE (explicit, self-contained)
         if module_instance and hasattr(module_instance, 'PRESET_STATE'):
             config = getattr(module_instance, 'PRESET_STATE')
             if config:
-                showlog.debug(f"[PresetManager] Using PRESET_STATE from module for {page_id}")
+                showlog.debug(f"*[PresetManager] Using PRESET_STATE from module for {page_id}")
                 return config
         
         # Check module class for PRESET_STATE
@@ -75,23 +77,27 @@ class PresetManager:
             if hasattr(module_class, 'PRESET_STATE'):
                 config = getattr(module_class, 'PRESET_STATE')
                 if config:
-                    showlog.debug(f"[PresetManager] Using PRESET_STATE from module class for {page_id}")
+                    showlog.debug(f"*[PresetManager] Using PRESET_STATE from module class for {page_id}")
                     return config
         
         # Priority 2: Auto-discover from REGISTRY (automatic, no config needed!)
         if module_instance and hasattr(module_instance, 'REGISTRY'):
             registry = getattr(module_instance, 'REGISTRY')
-            if registry:
-                # Extract all slot IDs from registry
-                auto_config = self._auto_discover_from_registry(module_instance, registry)
-                if auto_config:
-                    showlog.debug(f"[PresetManager] Auto-discovered config from REGISTRY for {page_id}")
-                    return auto_config
+            showlog.debug(f"*[PresetManager] Module has REGISTRY, attempting auto-discovery")
+            # Even if registry is empty {}, still try auto-discovery (it checks PRESET_VARS too)
+            auto_config = self._auto_discover_from_registry(module_instance, registry)
+            if auto_config:
+                showlog.debug(f"*[PresetManager] Auto-discovered config from REGISTRY for {page_id}")
+                return auto_config
+            else:
+                showlog.debug(f"*[PresetManager] Auto-discovery returned None")
         
         # Priority 3: Fall back to save_state_vars.json
         config = self.config.get(page_id)
         if config:
-            showlog.debug(f"[PresetManager] Using save_state_vars.json for {page_id}")
+            showlog.debug(f"*[PresetManager] Using save_state_vars.json for {page_id}")
+        else:
+            showlog.warn(f"*[PresetManager] No config found anywhere for {page_id}")
         return config
     
     def _auto_discover_from_registry(self, module_instance, registry: Dict) -> Optional[Dict]:
@@ -109,6 +115,10 @@ class PresetManager:
         Returns:
             Auto-generated config dict
         """
+        showlog.debug(f"*[PresetManager] _auto_discover_from_registry called")
+        showlog.debug(f"*[PresetManager] module_instance: {module_instance}")
+        showlog.debug(f"*[PresetManager] registry: {registry}")
+        
         try:
             variables = []
             registry_slots = []
@@ -142,20 +152,26 @@ class PresetManager:
                         variables.append(var_name)
             
             # Add module-level preset variables (PRESET_VARS) - for extra vars not in registry
+            showlog.debug(f"*[PresetManager] Checking for PRESET_VARS...")
             if hasattr(module_instance, 'PRESET_VARS'):
                 preset_vars = getattr(module_instance, 'PRESET_VARS')
+                showlog.debug(f"*[PresetManager] Found PRESET_VARS on instance: {preset_vars}")
                 if isinstance(preset_vars, list):
                     for var in preset_vars:
                         if var not in variables:
                             variables.append(var)
+                            showlog.debug(f"*[PresetManager] Added variable from PRESET_VARS: {var}")
             
             module_class = type(module_instance)
+            showlog.debug(f"*[PresetManager] Checking module_class: {module_class}")
             if hasattr(module_class, 'PRESET_VARS'):
                 preset_vars = getattr(module_class, 'PRESET_VARS')
+                showlog.debug(f"*[PresetManager] Found PRESET_VARS on class: {preset_vars}")
                 if isinstance(preset_vars, list):
                     for var in preset_vars:
                         if var not in variables:
                             variables.append(var)
+                            showlog.debug(f"*[PresetManager] Added variable from class PRESET_VARS: {var}")
             
             # Get widget state if defined
             widget_state = []
@@ -172,14 +188,23 @@ class PresetManager:
             }
             
             showlog.debug(
-                f"[PresetManager] Auto-discovered from REGISTRY: "
+                f"*[PresetManager] Auto-discovered from REGISTRY: "
                 f"{len(variables)} vars (including {len(button_state_vars)} button states), "
-                f"{len(registry_slots)} slots"
+                f"{len(registry_slots)} slots, widget_state={widget_state}"
             )
+            showlog.debug(f"*[PresetManager] Final config: {config}")
+            
+            # Return config if we have variables, slots, OR widget state
+            if not variables and not registry_slots and not widget_state:
+                showlog.warn(f"*[PresetManager] Auto-discovery found no variables, slots, or widget state, returning None")
+                return None
+            
             return config
             
         except Exception as e:
-            showlog.error(f"[PresetManager] Auto-discovery failed: {e}")
+            showlog.error(f"*[PresetManager] Auto-discovery failed: {e}")
+            import traceback
+            showlog.error(f"*[PresetManager] Traceback: {traceback.format_exc()}")
             return None
     
     def save_preset(self, page_id: str, preset_name: str, module_instance, widget=None) -> bool:
@@ -196,10 +221,13 @@ class PresetManager:
         Returns:
             True if save successful, False otherwise
         """
+        showlog.info(f"*[PresetManager] save_preset called: page_id='{page_id}', preset_name='{preset_name}'")
         try:
             page_config = self.get_page_config(page_id, module_instance)
+            showlog.debug(f"*[PresetManager] page_config: {page_config}")
+            
             if not page_config:
-                showlog.warn(f"[PresetManager] No config found for page: {page_id}")
+                showlog.warn(f"*[PresetManager] No config found for page: {page_id}")
                 return False
             
             preset_data = {
@@ -215,7 +243,7 @@ class PresetManager:
                 if hasattr(module_instance, var_name):
                     value = getattr(module_instance, var_name)
                     preset_data["variables"][var_name] = value
-                    showlog.debug(f"[PresetManager] Saved {var_name} = {value}")
+                    showlog.debug(f"*[PresetManager] Saved {var_name} = {value}")
             
             # Save widget state
             if widget:
@@ -250,17 +278,27 @@ class PresetManager:
             
             # Save to file
             page_preset_dir = self.presets_dir / page_id
+            showlog.debug(f"*[PresetManager] Creating directory: {page_preset_dir}")
             page_preset_dir.mkdir(parents=True, exist_ok=True)
             
-            preset_file = page_preset_dir / f"{preset_name}.json"
+            # Use .drawbar.json extension for ascii_animator presets
+            if page_id == "ascii_animator":
+                preset_file = page_preset_dir / f"{preset_name}.drawbar.json"
+                showlog.debug(f"*[PresetManager] Using .drawbar.json extension for ascii_animator")
+            else:
+                preset_file = page_preset_dir / f"{preset_name}.json"
+            
+            showlog.debug(f"*[PresetManager] Writing to file: {preset_file}")
             with open(preset_file, 'w') as f:
                 json.dump(preset_data, f, indent=2)
             
-            showlog.info(f"[PresetManager] Saved preset '{preset_name}' for {page_id} to {preset_file}")
+            showlog.info(f"*[PresetManager] Saved preset '{preset_name}' for {page_id} to {preset_file}")
             return True
             
         except Exception as e:
-            showlog.error(f"[PresetManager] Failed to save preset: {e}")
+            showlog.error(f"*[PresetManager] Failed to save preset: {e}")
+            import traceback
+            showlog.error(f"*[PresetManager] Traceback: {traceback.format_exc()}")
             return False
     
     def load_preset(self, page_id: str, preset_name: str, module_instance, widget=None) -> bool:
@@ -278,7 +316,14 @@ class PresetManager:
             True if load successful, False otherwise
         """
         try:
-            preset_file = self.presets_dir / page_id / f"{preset_name}.json"
+            # For ascii_animator, try .drawbar.json first, then fall back to .json
+            if page_id == "ascii_animator":
+                preset_file = self.presets_dir / page_id / f"{preset_name}.drawbar.json"
+                if not preset_file.exists():
+                    # Fall back to .json for backwards compatibility
+                    preset_file = self.presets_dir / page_id / f"{preset_name}.json"
+            else:
+                preset_file = self.presets_dir / page_id / f"{preset_name}.json"
             
             if not preset_file.exists():
                 showlog.warn(f"[PresetManager] Preset file not found: {preset_file}")
@@ -383,15 +428,23 @@ class PresetManager:
                     showlog.warn(f"[PresetManager] Could not stop vibrato: {e}")
             
             # Restore module variables
+            showlog.debug(f"*[PresetManager] Restoring variables from preset...")
             for var_name, value in preset_data.get("variables", {}).items():
+                showlog.debug(f"*[PresetManager] Checking var_name='{var_name}', value={value}")
                 if hasattr(module_instance, var_name):
                     setattr(module_instance, var_name, value)
-                    showlog.debug(f"[PresetManager] Restored {var_name} = {value}")
+                    showlog.debug(f"*[PresetManager] Restored {var_name} = {value}")
+                else:
+                    showlog.warn(f"*[PresetManager] Module doesn't have attribute '{var_name}', skipping")
             
             # Call module's on_preset_loaded hook if it exists (for post-restore sync)
             if hasattr(module_instance, 'on_preset_loaded') and callable(module_instance.on_preset_loaded):
                 try:
-                    module_instance.on_preset_loaded(preset_data.get("variables", {}))
+                    # Pass both variables and widget_state to the hook
+                    module_instance.on_preset_loaded(
+                        preset_data.get("variables", {}),
+                        widget_state=preset_data.get("widget_state", {})
+                    )
                     showlog.debug(f"[PresetManager] Called on_preset_loaded hook")
                 except Exception as e:
                     showlog.warn(f"[PresetManager] on_preset_loaded hook failed: {e}")
@@ -435,7 +488,11 @@ class PresetManager:
                                 widget_state_data['fade_ms'],
                                 emit=False
                             )
-                            showlog.debug(f"[PresetManager] Restored widget state via set_from_state()")
+                            showlog.debug(f"[PresetManager] Restored widget state via set_from_state() (VibratoField)")
+                        else:
+                            # Other widgets (like DrawBarWidget) use **kwargs
+                            widget.set_from_state(**widget_state_data)
+                            showlog.debug(f"[PresetManager] Restored widget state via set_from_state(**kwargs)")
                     except Exception as e:
                         showlog.warn(f"[PresetManager] widget.set_from_state() failed: {e}")
                 
@@ -506,14 +563,37 @@ class PresetManager:
             List of preset names (without .json extension)
         """
         page_preset_dir = self.presets_dir / page_id
+        showlog.debug(f"*[PresetManager] list_presets called for page_id='{page_id}'")
+        showlog.debug(f"*[PresetManager] Looking in directory: {page_preset_dir}")
+        showlog.debug(f"*[PresetManager] Directory exists: {page_preset_dir.exists()}")
         
         if not page_preset_dir.exists():
+            showlog.debug(f"*[PresetManager] Directory doesn't exist, returning empty list")
             return []
         
         presets = []
-        for preset_file in page_preset_dir.glob("*.json"):
-            presets.append(preset_file.stem)
         
+        # For ascii_animator, look for both .json and .drawbar.json files
+        if page_id == "ascii_animator":
+            # Get .drawbar.json files
+            for preset_file in page_preset_dir.glob("*.drawbar.json"):
+                # Remove .drawbar.json to get the name
+                preset_name = preset_file.name.replace(".drawbar.json", "")
+                presets.append(preset_name)
+                showlog.debug(f"*[PresetManager] Found drawbar preset: {preset_name}")
+            
+            # Also get regular .json files (for backwards compatibility)
+            for preset_file in page_preset_dir.glob("*.json"):
+                if not preset_file.name.endswith(".drawbar.json"):
+                    presets.append(preset_file.stem)
+                    showlog.debug(f"*[PresetManager] Found regular preset: {preset_file.stem}")
+        else:
+            # For other modules, just get .json files
+            for preset_file in page_preset_dir.glob("*.json"):
+                presets.append(preset_file.stem)
+                showlog.debug(f"*[PresetManager] Found preset: {preset_file.stem}")
+        
+        showlog.debug(f"*[PresetManager] Total presets found: {len(presets)}")
         return sorted(presets)
     
     def delete_preset(self, page_id: str, preset_name: str) -> bool:
@@ -528,7 +608,13 @@ class PresetManager:
             True if deletion successful, False otherwise
         """
         try:
-            preset_file = self.presets_dir / page_id / f"{preset_name}.json"
+            # For ascii_animator, try .drawbar.json first, then fall back to .json
+            if page_id == "ascii_animator":
+                preset_file = self.presets_dir / page_id / f"{preset_name}.drawbar.json"
+                if not preset_file.exists():
+                    preset_file = self.presets_dir / page_id / f"{preset_name}.json"
+            else:
+                preset_file = self.presets_dir / page_id / f"{preset_name}.json"
             
             if preset_file.exists():
                 preset_file.unlink()
@@ -554,7 +640,13 @@ class PresetManager:
             Preset data dict or None if not found
         """
         try:
-            preset_file = self.presets_dir / page_id / f"{preset_name}.json"
+            # For ascii_animator, try .drawbar.json first, then fall back to .json
+            if page_id == "ascii_animator":
+                preset_file = self.presets_dir / page_id / f"{preset_name}.drawbar.json"
+                if not preset_file.exists():
+                    preset_file = self.presets_dir / page_id / f"{preset_name}.json"
+            else:
+                preset_file = self.presets_dir / page_id / f"{preset_name}.json"
             
             if not preset_file.exists():
                 return None

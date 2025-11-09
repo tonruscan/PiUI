@@ -15,25 +15,35 @@ class PresetSaveUI:
     Modal overlay for saving a preset with a text input field.
     """
     
-    def __init__(self, screen_size):
+    def __init__(self, screen_size, msg_queue=None):
         """
         Initialize the preset save UI.
         
         Args:
             screen_size: Tuple of (width, height) for the screen
+            msg_queue: Optional message queue for requesting full frame redraws
         """
+        showlog.debug(f"[PresetSaveUI] === __INIT__ CALLED ===")
+        showlog.debug(f"[PresetSaveUI] screen_size: {screen_size}")
+        showlog.debug(f"[PresetSaveUI] msg_queue: {msg_queue is not None}")
+        
         self.screen_width, self.screen_height = screen_size
+        self.msg_queue = msg_queue
         self.active = False
         self.text = ""
         self.cursor_visible = True
         self.cursor_timer = 0
         self.cursor_blink_rate = 500  # milliseconds
         
+        showlog.debug(f"[PresetSaveUI] Basic properties set, active={self.active}")
+        
         # UI dimensions
         self.overlay_width = int(self.screen_width * 0.8)
         self.overlay_height = 200
         self.overlay_x = (self.screen_width - self.overlay_width) // 2
         self.overlay_y = (self.screen_height - self.overlay_height) // 2
+        
+        showlog.debug(f"[PresetSaveUI] Overlay dimensions: {self.overlay_width}x{self.overlay_height} at ({self.overlay_x}, {self.overlay_y})")
         
         # Colors
         self.bg_color = (26, 26, 34, 240)  # Semi-transparent dark background
@@ -50,10 +60,12 @@ class PresetSaveUI:
             self.title_font = pygame.font.SysFont("arial", 24, bold=True)
             self.input_font = pygame.font.SysFont("arial", 20)
             self.button_font = pygame.font.SysFont("arial", 18, bold=True)
+            showlog.debug(f"[PresetSaveUI] Fonts loaded successfully")
         except:
             self.title_font = pygame.font.Font(None, 24)
             self.input_font = pygame.font.Font(None, 20)
             self.button_font = pygame.font.Font(None, 18)
+            showlog.debug(f"[PresetSaveUI] Using default fonts")
         
         # Button rectangles
         self.save_button = None
@@ -63,6 +75,8 @@ class PresetSaveUI:
         # Callback
         self.on_save = None  # Callback function when user saves
         self.on_cancel = None  # Callback function when user cancels
+        
+        showlog.debug(f"[PresetSaveUI] Initialization complete!")
     
     def show(self, on_save_callback=None, on_cancel_callback=None, default_text=""):
         """
@@ -73,6 +87,12 @@ class PresetSaveUI:
             on_cancel_callback: Function to call when cancelled
             default_text: Default text in the input field
         """
+        showlog.debug(f"[PresetSaveUI] === SHOW() CALLED ===")
+        showlog.debug(f"[PresetSaveUI] on_save_callback: {on_save_callback}")
+        showlog.debug(f"[PresetSaveUI] on_cancel_callback: {on_cancel_callback}")
+        showlog.debug(f"[PresetSaveUI] default_text: '{default_text}'")
+        showlog.debug(f"[PresetSaveUI] Current active state: {self.active}")
+        
         self.active = True
         self.text = default_text
         self.on_save = on_save_callback
@@ -80,30 +100,49 @@ class PresetSaveUI:
         self.cursor_visible = True
         self.cursor_timer = pygame.time.get_ticks()
         
+        showlog.debug(f"[PresetSaveUI] Active state set to: {self.active}")
+        showlog.debug(f"[PresetSaveUI] Text set to: '{self.text}'")
+        
         # Enable remote keyboard input (send CC 119 = 127)
+        showlog.verbose("[PresetSaveUI] About to enable remote keyboard")
         try:
+            showlog.verbose("[PresetSaveUI] Importing midiserver module")
             import midiserver
+            showlog.verbose("[PresetSaveUI] midiserver imported successfully")
+            showlog.verbose("[PresetSaveUI] Calling midiserver.send_cc_raw(119, 127)")
             midiserver.send_cc_raw(119, 127)
-            showlog.debug("[PresetSaveUI] Sent CC 119 = 127 (enable keyboard)")
+            showlog.verbose("[PresetSaveUI] midiserver.send_cc_raw(119, 127) call completed")
+            showlog.debug(f"[PresetSaveUI] Sent CC 119 = 127 (enable remote keyboard)")
         except Exception as e:
             showlog.warn(f"[PresetSaveUI] Failed to enable keyboard: {e}")
         
-        showlog.debug("[PresetSaveUI] Overlay shown")
+        # Force continuous full frame redraws while dialog is active
+        showlog.debug(f"[PresetSaveUI] Requesting full frame redraws...")
+        self._request_full_frames()
+        
+        showlog.debug(f"[PresetSaveUI] show() complete - dialog is now active={self.active}")
     
     def hide(self):
         """Hide the preset save UI overlay."""
+        showlog.debug("*[PresetSaveUI] === HIDE() CALLED ===")
+        showlog.debug(f"*[PresetSaveUI] Current active state: {self.active}")
+        
         self.active = False
         self.text = ""
         
         # Disable remote keyboard input (send CC 119 = 0)
         try:
+            showlog.debug("*[PresetSaveUI] About to send CC 119 = 0 (disable keyboard)")
             import midiserver
             midiserver.send_cc_raw(119, 0)
-            showlog.debug("[PresetSaveUI] Sent CC 119 = 0 (disable keyboard)")
+            showlog.debug("*[PresetSaveUI] Sent CC 119 = 0 (disable keyboard)")
         except Exception as e:
-            showlog.warn(f"[PresetSaveUI] Failed to disable keyboard: {e}")
+            showlog.warn(f"*[PresetSaveUI] Failed to disable keyboard: {e}")
         
-        showlog.debug("[PresetSaveUI] Overlay hidden")
+        # Request one final full frame to clear the overlay
+        self._request_full_frames(count=1)
+        
+        showlog.debug("*[PresetSaveUI] Overlay hidden")
     
     def handle_remote_input(self, data):
         """
@@ -112,7 +151,13 @@ class PresetSaveUI:
         Args:
             data: Character or special key from remote keyboard
         """
+        showlog.debug(f"*[PresetSaveUI] === HANDLE_REMOTE_INPUT CALLED ===")
+        showlog.debug(f"*[PresetSaveUI] data='{data}' (repr: {repr(data)})")
+        showlog.debug(f"*[PresetSaveUI] active={self.active}")
+        showlog.debug(f"*[PresetSaveUI] current text='{self.text}'")
+        
         if not self.active:
+            showlog.warn(f"*[PresetSaveUI] Not active, ignoring input")
             return
         
         # Backspace
@@ -121,16 +166,20 @@ class PresetSaveUI:
                 self.text = self.text[:-1]
                 self.cursor_visible = True
                 self.cursor_timer = pygame.time.get_ticks()
+                self._request_full_frames()
+                showlog.debug(f"*[PresetSaveUI] Backspace - new text: '{self.text}'")
         
         # Enter key - save
         elif data == "\n":
             if self.text.strip():
+                showlog.debug(f"*[PresetSaveUI] Enter pressed - saving preset: '{self.text.strip()}'")
                 if self.on_save:
                     self.on_save(self.text.strip())
                 self.hide()
         
         # Escape key - cancel
         elif data == "\x1b":  # ESC character
+            showlog.debug(f"*[PresetSaveUI] Escape pressed - canceling")
             if self.on_cancel:
                 self.on_cancel()
             self.hide()
@@ -143,6 +192,14 @@ class PresetSaveUI:
                     self.text += data
                     self.cursor_visible = True
                     self.cursor_timer = pygame.time.get_ticks()
+                    self._request_full_frames()
+                    showlog.debug(f"*[PresetSaveUI] Added char '{data}' - new text: '{self.text}'")
+                else:
+                    showlog.warn(f"*[PresetSaveUI] Text at max length (32), ignoring")
+            else:
+                showlog.warn(f"*[PresetSaveUI] Invalid char '{data}', ignoring")
+        else:
+            showlog.warn(f"*[PresetSaveUI] Unhandled input: '{data}'")
     
     def handle_event(self, event):
         """
@@ -170,8 +227,13 @@ class PresetSaveUI:
             
             # Check cancel button
             if self.cancel_button and self.cancel_button.collidepoint(x, y):
+                showlog.debug("*[PresetSaveUI] Cancel button clicked")
                 if self.on_cancel:
+                    showlog.debug("*[PresetSaveUI] Calling on_cancel callback")
                     self.on_cancel()
+                else:
+                    showlog.debug("*[PresetSaveUI] No on_cancel callback set")
+                showlog.debug("*[PresetSaveUI] About to call hide()")
                 self.hide()
                 return True
             
@@ -200,8 +262,13 @@ class PresetSaveUI:
             
             elif event.key == pygame.K_ESCAPE:
                 # Escape key - cancel
+                showlog.debug("*[PresetSaveUI] Escape key pressed")
                 if self.on_cancel:
+                    showlog.debug("*[PresetSaveUI] Calling on_cancel callback")
                     self.on_cancel()
+                else:
+                    showlog.debug("*[PresetSaveUI] No on_cancel callback set")
+                showlog.debug("*[PresetSaveUI] About to call hide()")
                 self.hide()
                 return True
             
@@ -211,6 +278,7 @@ class PresetSaveUI:
                     self.text = self.text[:-1]
                     self.cursor_visible = True
                     self.cursor_timer = pygame.time.get_ticks()
+                    self._request_full_frames()
                 return True
             
             elif hasattr(event, 'unicode'):
@@ -222,9 +290,26 @@ class PresetSaveUI:
                         self.text += char
                         self.cursor_visible = True
                         self.cursor_timer = pygame.time.get_ticks()
+                        self._request_full_frames()
                 return True
         
         return True  # Block all events when overlay is active
+    
+    def _request_full_frames(self, count=2):
+        """
+        Request full frame redraws to ensure overlay is visible.
+        
+        Args:
+            count: Number of frames to redraw (default 2)
+        """
+        if self.msg_queue:
+            try:
+                self.msg_queue.put(("force_redraw", count))
+                showlog.debug(f"[PresetSaveUI] Requested {count} full frame redraws")
+            except Exception as e:
+                showlog.debug(f"[PresetSaveUI] Could not request full frames: {e}")
+        else:
+            showlog.debug(f"[PresetSaveUI] No msg_queue available for full frame request")
     
     def update(self):
         """Update cursor blink animation."""
@@ -235,6 +320,8 @@ class PresetSaveUI:
         if now - self.cursor_timer > self.cursor_blink_rate:
             self.cursor_visible = not self.cursor_visible
             self.cursor_timer = now
+            # Request full frame redraw for cursor blink
+            self._request_full_frames(count=1)
     
     def draw(self, screen):
         """
@@ -246,16 +333,23 @@ class PresetSaveUI:
         if not self.active:
             return
         
+        showlog.debug(f"[PresetSaveUI] === DRAW() CALLED ===")
+        showlog.debug(f"[PresetSaveUI] Active: {self.active}, Text: '{self.text}'")
+        
         # Draw semi-transparent background
         overlay_surf = pygame.Surface((self.screen_width, self.screen_height), pygame.SRCALPHA)
         overlay_surf.fill((0, 0, 0, 180))
         screen.blit(overlay_surf, (0, 0))
+        
+        showlog.debug(f"[PresetSaveUI] Drew background overlay")
         
         # Draw main panel
         panel_rect = pygame.Rect(self.overlay_x, self.overlay_y, 
                                  self.overlay_width, self.overlay_height)
         pygame.draw.rect(screen, self.panel_color, panel_rect, border_radius=12)
         pygame.draw.rect(screen, self.border_color, panel_rect, width=2, border_radius=12)
+        
+        showlog.debug(f"[PresetSaveUI] Drew main panel at {panel_rect}")
         
         # Title
         title = self.title_font.render("Save Preset", True, self.text_color)
@@ -275,6 +369,7 @@ class PresetSaveUI:
         
         # Draw text
         if self.text:
+            showlog.debug(f"[PresetSaveUI] Drawing text: '{self.text}'")
             text_surf = self.input_font.render(self.text, True, self.text_color)
             text_rect = text_surf.get_rect(left=self.input_rect.left + 10,
                                           centery=self.input_rect.centery)
@@ -293,6 +388,7 @@ class PresetSaveUI:
                 pygame.draw.line(screen, self.text_color, 
                                (cursor_x, cursor_y1), (cursor_x, cursor_y2), 2)
         else:
+            showlog.debug(f"[PresetSaveUI] No text, drawing placeholder")
             # Placeholder text
             placeholder = self.input_font.render("Enter preset name...", True, (128, 128, 128))
             placeholder_rect = placeholder.get_rect(left=self.input_rect.left + 10,

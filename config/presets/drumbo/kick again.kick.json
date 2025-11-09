@@ -1,0 +1,34 @@
+{
+  "page_id": "drumbo",
+  "preset_name": "kick again.kick",
+  "variables": {
+    "preset_bank_a_values": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      63,
+      70,
+      60
+    ],
+    "preset_bank_b_values": [
+      54,
+      60,
+      59,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "preset_instrument": "kick"
+  },
+  "widget_state": {
+    "current_instrument": "kick"
+  },
+  "button_states": {
+    "1": 1,
+    "2": 1
+  }
+}

@@ -34,6 +34,7 @@ class HardwareInitializer:
     def initialize_all(self, 
                        midi_cc_callback: Optional[Callable] = None,
                        midi_sysex_callback: Optional[Callable] = None,
+                       midi_note_callback: Optional[Callable] = None,
                        screen: Optional[object] = None):
         """
         Initialize all hardware subsystems.
@@ -41,9 +42,10 @@ class HardwareInitializer:
         Args:
             midi_cc_callback: Callback for MIDI CC messages
             midi_sysex_callback: Callback for MIDI SysEx messages
+            midi_note_callback: Callback for MIDI Note messages
             screen: Pygame screen surface for remote typing
         """
-        self.initialize_midi(midi_cc_callback, midi_sysex_callback)
+        self.initialize_midi(midi_cc_callback, midi_sysex_callback, midi_note_callback)
         self.initialize_cv()
         self.initialize_network()
         if screen:
@@ -51,18 +53,21 @@ class HardwareInitializer:
     
     def initialize_midi(self, 
                        cc_callback: Optional[Callable] = None,
-                       sysex_callback: Optional[Callable] = None):
+                       sysex_callback: Optional[Callable] = None,
+                       note_callback: Optional[Callable] = None):
         """
         Initialize MIDI server.
         
         Args:
             cc_callback: Callback for MIDI CC messages
             sysex_callback: Callback for MIDI SysEx messages
+            note_callback: Callback for MIDI Note messages
         """
         try:
             midiserver.init(
                 dial_cb=cc_callback,
-                sysex_cb=sysex_callback
+                sysex_cb=sysex_callback,
+                note_cb=note_callback
             )
             self.midi_initialized = True
             showlog.debug("[HARDWARE] MIDI server initialized")

@@ -12,6 +12,15 @@ import importlib
 # --- imported shared UI assets ---
 from assets import ui_button, ui_label
 
+# Plugin metadata for rendering system
+PLUGIN_METADATA = {
+    "rendering": {
+        "fps_mode": "high",              # Needs 100 FPS for smooth dial interaction
+        "supports_dirty_rect": True,     # Uses dirty rect optimization
+        "burst_multiplier": 1.0,         # Standard burst behavior
+    }
+}
+
 # globals so ui.py can import or modify them
 button_rects = []
 selected_buttons = set()  # keeps track of toggled/selected buttons
@@ -160,6 +169,20 @@ def _get_dial_face(radius: int, panel_color, fill_color, outline_color, outline_
     return surf
 
 
+def _normalize_color(value, fallback):
+    if value is None:
+        return fallback
+    try:
+        if isinstance(value, (tuple, list)):
+            if len(value) >= 3:
+                return tuple(int(max(0, min(255, c))) for c in value[:3])
+        elif isinstance(value, str):
+            return helper.hex_to_rgb(value)
+    except Exception:
+        pass
+    return fallback
+
+
 # (3)(5) Per-dial text cache — only rebuild when content/colors change
 # We store these on the dial objects to keep memory bounded.
 def _get_label_surface_for_dial(d, main_font, text_color, unit_text):
@@ -167,34 +190,64 @@ def _get_label_surface_for_dial(d, main_font, text_color, unit_text):
     Returns a pygame.Surface for 'Label: value [+ unit]' reusing d.cached_surface
     if nothing relevant changed.
     """
-    label_prefix = f"{d.label}: "
+    show_value = getattr(d, "show_value_on_label", True)
+    custom_label = getattr(d, "custom_label_text", None)
+    uppercase_override = getattr(d, "custom_label_upper", None)
+    uppercase_flag = cfg.DIAL_FONT_UPPER if uppercase_override is None else bool(uppercase_override)
 
-    # Compose the displayed main string (with case)
-    shown_val = d._shown_val_text  # computed earlier per dial
-    label_str = helper.apply_text_case(f"{label_prefix}{shown_val}", cfg.DIAL_FONT_UPPER)
+    dial_radius = float(getattr(d, "radius", getattr(cfg, "DIAL_SIZE", 50)))
+    base_radius = float(getattr(cfg, "DIAL_SIZE", 50))
+    is_mini = dial_radius < base_radius or getattr(d, "display_mode", "").startswith("drumbo")
+    base_font_size = int(cfg.DIAL_FONT_SIZE)
+    font_size = base_font_size
+    if is_mini:
+        font_size = int(getattr(cfg, "MINI_DIAL_FONT_SIZE", base_font_size))
+
+    if font_size <= 0:
+        font_size = base_font_size
+
+    if custom_label is not None:
+        label_base = str(custom_label)
+        label_str = helper.apply_text_case(label_base, uppercase_flag)
+    elif not show_value:
+        label_base = str(getattr(d, "label", ""))
+        label_str = helper.apply_text_case(label_base, uppercase_flag)
+    else:
+        shown_val = getattr(d, "_shown_val_text", "")
+        label_prefix = f"{getattr(d, 'label', '')}: "
+        label_str = helper.apply_text_case(f"{label_prefix}{shown_val}", uppercase_flag)
+
+    effective_unit = unit_text if show_value else ""
 
     # Build a cache key that captures text + relevant colors/settings
     key = (
         label_str,
         tuple(text_color),
-        unit_text or "",
-        int(cfg.DIAL_FONT_SIZE),
+        effective_unit or "",
+        int(font_size),
         int(cfg.DIAL_FONT_SPACING),
         int(cfg.TYPE_FONT_OFFSET_Y),
         float(cfg.TYPE_FONT_SCALE),
         getattr(cfg, "TYPE_FONT_COLOR", "#FFFFFF"),
+        bool(show_value),
     )
 
     if getattr(d, "_label_key", None) == key and getattr(d, "cached_surface", None) is not None:
         return d.cached_surface
 
     # Re-render
-    main_surf, _ = helper.render_text_with_spacing(label_str, main_font, text_color, spacing=cfg.DIAL_FONT_SPACING)
+    if font_size == base_font_size:
+        font_obj = main_font
+    else:
+        font_obj = _get_font(font_size)
 
-    if unit_text:
-        small_font = _get_font(int(cfg.DIAL_FONT_SIZE * cfg.TYPE_FONT_SCALE))
+    main_surf, _ = helper.render_text_with_spacing(label_str, font_obj, text_color, spacing=cfg.DIAL_FONT_SPACING)
+
+    if effective_unit:
+        unit_font_size = max(1, int(round(font_size * cfg.TYPE_FONT_SCALE)))
+        small_font = _get_font(unit_font_size)
         unit_color = helper.hex_to_rgb(cfg.TYPE_FONT_COLOR)
-        unit_surf = small_font.render(unit_text, True, unit_color)
+        unit_surf = small_font.render(effective_unit, True, unit_color)
         combined = pygame.Surface(
             (main_surf.get_width() + unit_surf.get_width() + cfg.TYPE_FONT_SPACING, main_surf.get_height()),
             pygame.SRCALPHA
@@ -215,7 +268,6 @@ def _get_label_surface_for_dial(d, main_font, text_color, unit_text):
 
 def draw_ui(screen, dials, radius, exit_rect, header_text, pressed_button=None, offset_y=0):
     """Draw the main dial page UI (8 dials + 10 buttons + header/footer)."""
-    screen.fill((0, 0, 0))
     # Fast font fetch (cached)
     font = _get_font(cfg.DIAL_FONT_SIZE)
 
@@ -242,57 +294,96 @@ def draw_ui(screen, dials, radius, exit_rect, header_text, pressed_button=None, 
     device_name = getattr(dialhandlers, "current_device_name", None)
 
     for d in dials:
+        visual_mode = getattr(d, "visual_mode", "default")
+        if visual_mode == "hidden":
+            continue
         is_empty = d.label.upper() == "EMPTY"
 
         # --- choose color palette (theme-aware, unified keys) ---
+        dim_factor = 0.8
+        bank_active = bool(getattr(d, "bank_active", True))
+
+        def _maybe_dim(col):
+            if bank_active:
+                return col
+            return tuple(max(0, min(255, int(round(c * dim_factor)))) for c in col)
+
+        show_value = getattr(d, "show_value_on_label", True)
+
         if is_empty:
-            panel_color   = helper.theme_rgb(device_name, "DIAL_OFFLINE_PANEL",  "#101010")
-            fill_color    = helper.theme_rgb(device_name, "DIAL_OFFLINE_FILL",   "#303030")
-            outline_color = helper.theme_rgb(device_name, "DIAL_OFFLINE_OUTLINE","#505050")
-            text_color    = helper.theme_rgb(device_name, "DIAL_OFFLINE_TEXT",   "#707070")
+            panel_color   = helper.theme_rgb(device_name, "DIAL_OFFLINE_PANEL",  "#111111")
+            fill_color    = helper.theme_rgb(device_name, "DIAL_OFFLINE_FILL",   "#000000")
+            outline_color = helper.theme_rgb(device_name, "DIAL_OFFLINE_OUTLINE","#000000")
+            text_color    = helper.theme_rgb(device_name, "DIAL_OFFLINE_TEXT",   "#000000")
         elif is_page_muted:
-            panel_color   = helper.theme_rgb(device_name, "DIAL_MUTE_PANEL",     "#100010")
-            fill_color    = helper.theme_rgb(device_name, "DIAL_MUTE_FILL",      "#4A004A")
-            outline_color = helper.theme_rgb(device_name, "DIAL_MUTE_OUTLINE",   "#804080")
-            text_color    = helper.theme_rgb(device_name, "DIAL_MUTE_TEXT",      "#B088B0")
+            panel_color   = helper.theme_rgb(device_name, "DIAL_MUTE_PANEL",     "#222222")
+            fill_color    = helper.theme_rgb(device_name, "DIAL_MUTE_FILL",      "#000000")
+            outline_color = helper.theme_rgb(device_name, "DIAL_MUTE_OUTLINE",   "#222222")
+            text_color    = helper.theme_rgb(device_name, "DIAL_MUTE_TEXT",      "#555555")
         else:
-            panel_color   = helper.theme_rgb(device_name, "DIAL_PANEL_COLOR",    "#301020")
-            fill_color    = helper.theme_rgb(device_name, "DIAL_FILL_COLOR",     "#FF0090")
-            outline_color = helper.theme_rgb(device_name, "DIAL_OUTLINE_COLOR",  "#FFB0D0")
-            text_color    = helper.theme_rgb(device_name, "DIAL_TEXT_COLOR",     "#FFFFFF")
+            panel_color   = helper.theme_rgb(device_name, "DIAL_PANEL_COLOR",    "#0A2F65")
+            fill_color    = helper.theme_rgb(device_name, "DIAL_FILL_COLOR",     "#000000")
+            outline_color = helper.theme_rgb(device_name, "DIAL_OUTLINE_COLOR",  "#000000")
+            text_color    = helper.theme_rgb(device_name, "DIAL_TEXT_COLOR",     "#FF8000")
+
+        override_text = getattr(d, "label_text_color_override", None)
+        text_color = _normalize_color(override_text, text_color)
+
+        panel_color = _maybe_dim(panel_color)
+        fill_color = _maybe_dim(fill_color)
+        outline_color = _maybe_dim(outline_color)
+        text_color = _maybe_dim(text_color)
+
+        try:
+            showlog.debug(
+                f"*[DIALS] draw_ui dial={getattr(d, 'id', '?')} bank_active={bank_active} "
+                f"radius={getattr(d, 'radius', 'NA')} panel={panel_color} text={text_color}"
+            )
+        except Exception:
+            pass
 
         # --- determine display value (also used for label caching key) ---
         r = getattr(d, "range", [0, 127])
         opts = getattr(d, "options", None)
 
-        if opts:
-            steps = len(opts)
-            if steps > 0:
-                step_size = 127 / (steps - 1)
-                idx = int(round(d.value / step_size))
-                idx = max(0, min(steps - 1, idx))
-                shown_val = str(opts[idx])
-            else:
-                shown_val = str(int(d.value))
-        else:
-            if isinstance(r, (list, tuple)) and len(r) == 2:
-                rmin, rmax = float(r[0]), float(r[1])
-                step = (rmax - rmin) / 254.0
-                scaled = rmin + step * (d.value * 2)
-                if (rmax - rmin) <= 10:
-                    shown_val = str(int(round(scaled)))
-                elif abs(rmin) == 60 and rmax == 0:
-                    shown_val = f"{round(scaled, 1)}"
+        if show_value:
+            if opts:
+                steps = len(opts)
+                if steps > 0:
+                    step_size = 127 / (steps - 1)
+                    idx = int(round(d.value / step_size))
+                    idx = max(0, min(steps - 1, idx))
+                    shown_val = str(opts[idx])
                 else:
-                    shown_val = str(int(round(scaled)))
+                    shown_val = str(int(d.value))
             else:
-                shown_val = str(int(d.value))
+                if isinstance(r, (list, tuple)) and len(r) == 2:
+                    rmin, rmax = float(r[0]), float(r[1])
+                    step = (rmax - rmin) / 254.0
+                    scaled = rmin + step * (d.value * 2)
+                    if (rmax - rmin) <= 10:
+                        shown_val = str(int(round(scaled)))
+                    elif abs(rmin) == 60 and rmax == 0:
+                        shown_val = f"{round(scaled, 1)}"
+                    else:
+                        shown_val = str(int(round(scaled)))
+                else:
+                    shown_val = str(int(d.value))
+        else:
+            shown_val = ""
 
         d._shown_val_text = shown_val  # used by label cache
 
+        # Remember radius used for label placement so dirty redraws match full draw
+        d._render_radius = radius
+        try:
+            showlog.debug(f"*[DIALS] stored render_radius for dial {getattr(d, 'id', '?')} → {radius}")
+        except Exception:
+            pass
+
         # --- optional unit/type suffix ---
         unit = getattr(d, "type", None)
-        if not unit or str(unit).lower() in ("raw", "none"):
+        if not show_value or not unit or str(unit).lower() in ("raw", "none"):
             unit = ""
 
         # ---------- label (cached) ----------
@@ -316,16 +407,23 @@ def draw_ui(screen, dials, radius, exit_rect, header_text, pressed_button=None, 
             x1 = d.cx + d.radius * math.cos(rad)
             y1 = sy(d.cy) - d.radius * math.sin(rad)
             # ⚡ simple wide line (fast)
-            pygame.draw.line(screen, (255, 255, 255), (int(x0), int(y0)), (int(x1), int(y1)), 6)
+            pointer_color = _maybe_dim((255, 255, 255))
+            pygame.draw.line(screen, pointer_color, (int(x0), int(y0)), (int(x1), int(y1)), 6)
+            try:
+                showlog.verbose2(
+                    f"*[DIALS] pointer dial={getattr(d, 'id', '?')} color={pointer_color} xy0={(int(x0), int(y0))} xy1={(int(x1), int(y1))}"
+                )
+            except Exception:
+                pass
 
     # ---------- draw side buttons ----------
     # Theme-aware button colors (unified naming)
-    btn_fill          = helper.theme_rgb(device_name, "BUTTON_FILL",           "#3C3C3C")
-    btn_outline       = helper.theme_rgb(device_name, "BUTTON_OUTLINE",        "#646464")
+    btn_fill          = helper.theme_rgb(device_name, "BUTTON_FILL",           "#071C3C")
+    btn_outline       = helper.theme_rgb(device_name, "BUTTON_OUTLINE",        "#0D3A7A")
     btn_text          = helper.theme_rgb(device_name, "BUTTON_TEXT",           "#FFFFFF")
     btn_disabled_fill = helper.theme_rgb(device_name, "BUTTON_DISABLED_FILL",  "#1E1E1E")
     btn_disabled_text = helper.theme_rgb(device_name, "BUTTON_DISABLED_TEXT",  "#646464")
-    btn_active_fill   = helper.theme_rgb(device_name, "BUTTON_ACTIVE_FILL",    "#960096")
+    btn_active_fill   = helper.theme_rgb(device_name, "BUTTON_ACTIVE_FILL",    "#0050A0")
     btn_active_text   = helper.theme_rgb(device_name, "BUTTON_ACTIVE_TEXT",    "#FFFFFF")
 
     font_label = pygame.font.SysFont("arial", 20)  # labels are tiny; sysfont is fine/cached internally
@@ -412,61 +510,53 @@ def redraw_single_dial(screen, d, offset_y=0, device_name=None, is_page_muted=Fa
     """
     Repaint just one dial: face + label + pointer. Returns a union rect we can pass to pygame.display.update().
     """
+    if getattr(d, "visual_mode", "default") == "hidden":
+        return None
     # 1) colors (same logic as in draw_ui)
+    dim_factor = 0.8
+    bank_active = bool(getattr(d, "bank_active", True))
+
+    def _maybe_dim(col):
+        if bank_active:
+            return col
+        return tuple(max(0, min(255, int(round(c * dim_factor)))) for c in col)
+
+    show_value = getattr(d, "show_value_on_label", True)
     is_empty = d.label.upper() == "EMPTY"
     if is_empty:
-        panel_color   = helper.theme_rgb(device_name, "DIAL_OFFLINE_PANEL",  "#101010")
-        fill_color    = helper.theme_rgb(device_name, "DIAL_OFFLINE_FILL",   "#303030")
-        outline_color = helper.theme_rgb(device_name, "DIAL_OFFLINE_OUTLINE","#505050")
-        text_color    = helper.theme_rgb(device_name, "DIAL_OFFLINE_TEXT",   "#707070")
+        panel_color   = helper.theme_rgb(device_name, "DIAL_OFFLINE_PANEL",  "#111111")
+        fill_color    = helper.theme_rgb(device_name, "DIAL_OFFLINE_FILL",   "#000000")
+        outline_color = helper.theme_rgb(device_name, "DIAL_OFFLINE_OUTLINE","#000000")
+        text_color    = helper.theme_rgb(device_name, "DIAL_OFFLINE_TEXT",   "#000000")
     elif is_page_muted:
-        panel_color   = helper.theme_rgb(device_name, "DIAL_MUTE_PANEL",     "#100010")
-        fill_color    = helper.theme_rgb(device_name, "DIAL_MUTE_FILL",      "#4A004A")
-        outline_color = helper.theme_rgb(device_name, "DIAL_MUTE_OUTLINE",   "#804080")
-        text_color    = helper.theme_rgb(device_name, "DIAL_MUTE_TEXT",      "#B088B0")
+        panel_color   = helper.theme_rgb(device_name, "DIAL_MUTE_PANEL",     "#222222")
+        fill_color    = helper.theme_rgb(device_name, "DIAL_MUTE_FILL",      "#000000")
+        outline_color = helper.theme_rgb(device_name, "DIAL_MUTE_OUTLINE",   "#222222")
+        text_color    = helper.theme_rgb(device_name, "DIAL_MUTE_TEXT",      "#555555")
     else:
-        panel_color   = helper.theme_rgb(device_name, "DIAL_PANEL_COLOR",    "#301020")
-        fill_color    = helper.theme_rgb(device_name, "DIAL_FILL_COLOR",     "#FF0090")
-        outline_color = helper.theme_rgb(device_name, "DIAL_OUTLINE_COLOR",  "#FFB0D0")
-        text_color    = helper.theme_rgb(device_name, "DIAL_TEXT_COLOR",     "#FFFFFF")
+        panel_color   = helper.theme_rgb(device_name, "DIAL_PANEL_COLOR",    "#0A2F65")
+        fill_color    = helper.theme_rgb(device_name, "DIAL_FILL_COLOR",     "#000000")
+        outline_color = helper.theme_rgb(device_name, "DIAL_OUTLINE_COLOR",  "#000000")
+        text_color    = helper.theme_rgb(device_name, "DIAL_TEXT_COLOR",     "#FF8000")
+
+    override_text = getattr(d, "label_text_color_override", None)
+    text_color = _normalize_color(override_text, text_color)
+
+    panel_color = _maybe_dim(panel_color)
+    fill_color = _maybe_dim(fill_color)
+    outline_color = _maybe_dim(outline_color)
+    text_color = _maybe_dim(text_color)
+    try:
+        showlog.debug(
+            f"*[DIALS] redraw_single dial={getattr(d, 'id', '?')} bank_active={bank_active} "
+            f"radius={getattr(d, 'radius', 'NA')} panel={panel_color} text={text_color}"
+        )
+    except Exception:
+        pass
 
     # 2) figure the shown value (same as draw_ui, condensed)
     r = getattr(d, "range", [0, 127]); opts = getattr(d, "options", None)
-    if opts:
-        steps = max(1, len(opts))
-        step_size = 127 / (steps - 1) if steps > 1 else 127
-        idx = max(0, min(steps - 1, int(round(d.value / step_size))))
-        shown_val = str(opts[idx])
-    else:
-        if isinstance(r, (list, tuple)) and len(r) == 2:
-            rmin, rmax = float(r[0]), float(r[1])
-            step = (rmax - rmin) / 254.0
-            scaled = rmin + step * (d.value * 2)
-            if (rmax - rmin) <= 10:
-                shown_val = str(int(round(scaled)))
-            elif abs(rmin) == 60 and rmax == 0:
-                shown_val = f"{round(scaled, 1)}"
-            else:
-                shown_val = str(int(round(scaled)))
-        else:
-            shown_val = str(int(d.value))
-    d._shown_val_text = shown_val
-
-    unit = getattr(d, "type", None)
-    if not unit or str(unit).lower() in ("raw", "none"):
-        unit = ""
-
-    # 3) re-blit the cached face to erase old pointer
-    outline_w = max(1, int(round(cfg.DIAL_LINE_WIDTH)))
-    face = _get_dial_face(int(d.radius), panel_color, fill_color, outline_color, outline_w)
-    panel_rect = _dial_panel_rect(d, offset_y)
-    screen.blit(face, panel_rect.topleft)
-
-    # 4) label (uses your cached text path; optionally throttled)
-    label_rect = None
-    if update_label or force_label or getattr(d, "cached_surface", None) is None:
-        # recompute shown value only when refreshing label
-        r = getattr(d, "range", [0, 127]); opts = getattr(d, "options", None)
+    if show_value:
         if opts:
             steps = max(1, len(opts))
             step_size = 127 / (steps - 1) if steps > 1 else 127
@@ -485,17 +575,105 @@ def redraw_single_dial(screen, d, offset_y=0, device_name=None, is_page_muted=Fa
                     shown_val = str(int(round(scaled)))
             else:
                 shown_val = str(int(d.value))
+    else:
+        shown_val = ""
+    d._shown_val_text = shown_val
+
+    unit = getattr(d, "type", None)
+    if not show_value or not unit or str(unit).lower() in ("raw", "none"):
+        unit = ""
+
+    # 3) re-blit the cached face to erase old pointer
+    outline_w = max(1, int(round(cfg.DIAL_LINE_WIDTH)))
+    face = _get_dial_face(int(d.radius), panel_color, fill_color, outline_color, outline_w)
+    
+    # For mini dials, skip the panel but still draw the dial circle
+    is_mini_dial = d.radius < getattr(cfg, "DIAL_SIZE", 50)
+    if is_mini_dial:
+        # Mini dials render directly over the background, so blend the outline with the panel color
+        outline_color = panel_color
+        # Draw dial circle directly without panel background
+        cx = int(round(d.cx))
+        cy = int(round(d.cy + offset_y))
+        r = int(round(d.radius))
+        # Draw thicker outline ring first so pointer artifacts don't bleed through
+        border_r = max(0, r + 2)
+        pygame.gfxdraw.filled_circle(screen, cx, cy, border_r, outline_color)
+        pygame.gfxdraw.aacircle(screen, cx, cy, border_r, outline_color)
+        pygame.gfxdraw.aacircle(screen, cx, cy, border_r + 1, outline_color)
+        # Inner fill for the actual dial face
+        pygame.gfxdraw.filled_circle(screen, cx, cy, r, fill_color)
+        pygame.gfxdraw.aacircle(screen, cx, cy, r, fill_color)
+        pygame.gfxdraw.aacircle(screen, cx, cy, r + 1, fill_color)
+        # Mini dial rect: just the circle bounds (diameter + small padding)
+        dial_size = int(border_r * 2 + 4)
+        panel_rect = pygame.Rect(cx - border_r - 2, cy - border_r - 2, dial_size, dial_size)
+    else:
+        # Normal dials - draw full face with panel background
+        panel_rect = _dial_panel_rect(d, offset_y)
+        screen.blit(face, panel_rect.topleft)
+
+    try:
+        if getattr(d, 'id', None) == 1:
+            import showlog
+            showlog.info(f"[DIALS] redraw_single_dial id={d.id}, mini={is_mini_dial}, panel_rect={panel_rect}")
+    except Exception:
+        pass
+
+    # 4) label (uses your cached text path; optionally throttled)
+    label_rect = None
+    if update_label or force_label or getattr(d, "cached_surface", None) is None:
+        # recompute shown value only when refreshing label
+        r = getattr(d, "range", [0, 127]); opts = getattr(d, "options", None)
+        if show_value:
+            if opts:
+                steps = max(1, len(opts))
+                step_size = 127 / (steps - 1) if steps > 1 else 127
+                idx = max(0, min(steps - 1, int(round(d.value / step_size))))
+                shown_val = str(opts[idx])
+            else:
+                if isinstance(r, (list, tuple)) and len(r) == 2:
+                    rmin, rmax = float(r[0]), float(r[1])
+                    step = (rmax - rmin) / 254.0
+                    scaled = rmin + step * (d.value * 2)
+                    if (rmax - rmin) <= 10:
+                        shown_val = str(int(round(scaled)))
+                    elif abs(rmin) == 60 and rmax == 0:
+                        shown_val = f"{round(scaled, 1)}"
+                    else:
+                        shown_val = str(int(round(scaled)))
+                else:
+                    shown_val = str(int(d.value))
+        else:
+            shown_val = ""
         d._shown_val_text = shown_val
 
         unit = getattr(d, "type", None)
-        if not unit or str(unit).lower() in ("raw", "none"):
+        if not show_value or not unit or str(unit).lower() in ("raw", "none"):
             unit = ""
 
         font = _get_font(cfg.DIAL_FONT_SIZE)
 
     label_surf = _get_label_surface_for_dial(d, font, text_color, unit)
-    # Dirty rect needs +10px offset to match full draw positioning (dial face accounts for this)
-    label_rect = ui_label.draw_label(screen, label_surf, (d.cx, d.cy + offset_y + 10), d.radius)
+    # Match the full-draw label placement so dirty redraws stay aligned
+    render_radius = getattr(d, "_render_radius", None)
+    if render_radius is None:
+        render_radius = getattr(d, "radius", cfg.DIAL_SIZE)
+        d._render_radius = render_radius
+        try:
+            showlog.debug(
+                f"*[DIALS] init render_radius dial={getattr(d, 'id', '?')} from radius={render_radius}"
+            )
+        except Exception:
+            pass
+    else:
+        try:
+            showlog.debug(
+                f"*[DIALS] label redraw dial={getattr(d, 'id', '?')} render_radius={render_radius} cached_radius={getattr(d, '_render_radius', None)}"
+            )
+        except Exception:
+            pass
+    label_rect = ui_label.draw_label(screen, label_surf, (d.cx, d.cy + offset_y), render_radius)
 
     # 5) pointer (fast)
     if not is_empty:
@@ -504,7 +682,14 @@ def redraw_single_dial(screen, d, offset_y=0, device_name=None, is_page_muted=Fa
         y0 = (d.cy + offset_y) - (d.radius * 0.5) * math.sin(rad)
         x1 = d.cx + d.radius * math.cos(rad)
         y1 = (d.cy + offset_y) - d.radius * math.sin(rad)
-        pygame.draw.line(screen, (255, 255, 255), (int(x0), int(y0)), (int(x1), int(y1)), 6)
+        pointer_color = _maybe_dim((255, 255, 255))
+        pygame.draw.line(screen, pointer_color, (int(x0), int(y0)), (int(x1), int(y1)), 6)
+        try:
+            showlog.verbose2(
+                f"*[DIALS] pointer redraw dial={getattr(d, 'id', '?')} color={pointer_color} xy0={(int(x0), int(y0))} xy1={(int(x1), int(y1))}"
+            )
+        except Exception:
+            pass
 
     # 6) return union rect for display.update()
     return panel_rect.union(label_rect) if label_rect else panel_rect

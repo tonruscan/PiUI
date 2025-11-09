@@ -69,10 +69,10 @@ THEME = {
     "dial_mute_text": "#6EE0CF",        # muted turquoise
 
     # --- Offline dial ---
-    "dial_offline_panel": "#0A0A0A",
-    "dial_offline_fill": "#1C1C1C",
-    "dial_offline_outline": "#333333",
-    "dial_offline_text": "#666666",
+    "dial_offline_panel": "#111111",
+    "dial_offline_fill": "#000000",
+    "dial_offline_outline": "#000000",
+    "dial_offline_text": "#000000",
 
     # --- Dial buttons ---
     "button_fill": "#00D4A5",           # teal-green fill

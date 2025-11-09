@@ -7,6 +7,15 @@ from helper import hex_to_rgb
 from assets.fader import Fader
 import quadraverb_driver as qv
 
+# Plugin metadata for rendering system
+PLUGIN_METADATA = {
+    "rendering": {
+        "fps_mode": "high",              # Needs 100 FPS for smooth fader interaction
+        "supports_dirty_rect": True,     # Uses dirty rect optimization
+        "burst_multiplier": 1.0,         # Standard burst behavior
+    }
+}
+
 # -------------------------------------------------------------------
 # Globals
 # -------------------------------------------------------------------

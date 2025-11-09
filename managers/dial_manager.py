@@ -65,6 +65,7 @@ class DialManager:
                 dial_id += 1
         
         # Update dialhandlers reference
+        showlog.info(f"*[DIAL_MANAGER] 📋 About to set {len(self.dials)} dials via dialhandlers.set_dials()")
         dialhandlers.set_dials(self.dials)
         
         # Attach StateManager mapping if device provided

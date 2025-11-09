@@ -35,11 +35,21 @@ _pressed_time = 0   # timestamp for highlight flash
 
 _current_theme = None
 _current_device = None
+_cached_header_bg = None
+_cached_header_text = None
 
 # -------------------------------------------------------
 # Context menu button storage
 # -------------------------------------------------------
 _context_buttons = []  # Holds buttons shown in the dropdown menu
+
+def clear_theme_cache():
+    """Force reload of theme on next render (call when switching devices/modules)."""
+    global _current_theme, _current_device, _cached_header_bg, _cached_header_text
+    _current_theme = None
+    _current_device = None
+    _cached_header_bg = None
+    _cached_header_text = None
 
 def set_context_buttons(buttons):
     global _context_buttons
@@ -101,7 +111,7 @@ def init(screen, font_name="Rasegard", font_size=40, spacing=None):
         
         screenshot_img_raw = pygame.image.load(screenshot_path).convert_alpha()
 
-        screenshot_size = getattr(cfg, "SCREENSHOT_BUTTON_SIZE", 36)
+        screenshot_size = getattr(cfg, "SCREENSHOT_BUTTON_SIZE", 50)
         if isinstance(screenshot_size, (list, tuple)):
             screenshot_img = pygame.transform.smoothscale(screenshot_img_raw, (int(screenshot_size[0]), int(screenshot_size[1])))
         else:
@@ -110,7 +120,7 @@ def init(screen, font_name="Rasegard", font_size=40, spacing=None):
     except Exception as e:
         # Create a simple fallback icon if image doesn't exist
         try:
-            size = getattr(cfg, "SCREENSHOT_BUTTON_SIZE", 36)
+            size = getattr(cfg, "SCREENSHOT_BUTTON_SIZE", 50)
             if isinstance(size, (list, tuple)):
                 w, h = int(size[0]), int(size[1])
             else:
@@ -122,7 +132,7 @@ def init(screen, font_name="Rasegard", font_size=40, spacing=None):
             pygame.draw.rect(screenshot_img, (255, 255, 255), (2, 4, w-4, h-8), 2)
             pygame.draw.rect(screenshot_img, (255, 255, 255), (6, 8, w-12, h-16), 2)
             pygame.draw.circle(screenshot_img, (255, 255, 255), (w//2, h//2), 3)
-            showlog.debug(f"*[HEADER] Screenshot icon created (fallback)")
+            showlog.debug(f"[HEADER] Screenshot icon created (fallback)")
         except Exception:
             screenshot_img = None
         showlog.log(None, f"[HEADER] Screenshot icon fallback used: {e}")
@@ -149,7 +159,7 @@ def take_screenshot():
         # Save the screenshot
         if screen_ref:
             pygame.image.save(screen_ref, filepath)
-            showlog.debug(f"*[HEADER] Screenshot saved: {filename}")
+            showlog.debug(f"[HEADER] Screenshot saved: {filename}")
             return True
         else:
             showlog.error("[HEADER] No screen reference for screenshot")
@@ -267,7 +277,7 @@ def show(screen, msg, device_name=None):
     import devices
     global header_text, screen_ref, letter_spacing
     global arrow_img, burger_img, arrow_rect, burger_rect, screenshot_img, screenshot_rect, _context_buttons
-    global _current_theme, _current_device
+    global _current_theme, _current_device, _cached_header_bg, _cached_header_text
 
     # --- Auto-clear pressed highlight after 120ms ---
     global _pressed_button, _pressed_time
@@ -279,17 +289,31 @@ def show(screen, msg, device_name=None):
     if not screen or not font:
         return
 
-    # --- Get or cache theme once per device ---
-    if device_name != _current_device or _current_theme is None:
+    # --- Cache theme colors on device change (only resolve once per device) ---
+    if device_name != _current_device or _cached_header_bg is None:
+        showlog.debug(f"[HEADER] Theme cache miss - resolving colors for device_name='{device_name}'")
+        
+        # Cache the theme dict
         try:
             _current_theme = devices.get_theme(device_name) if device_name else {}
         except Exception:
             _current_theme = {}
+        
+        # Resolve and cache the actual RGB colors
+        if device_name:
+            _cached_header_bg = helper.theme_rgb(device_name, "HEADER_BG_COLOR", "#0B1C34")
+            _cached_header_text = helper.theme_rgb(device_name, "HEADER_TEXT_COLOR", "#BCBCBC")
+        else:
+            # Use config defaults directly for non-device pages
+            _cached_header_bg = helper.hex_to_rgb(getattr(cfg, "HEADER_BG_COLOR", "#0B1C34"))
+            _cached_header_text = helper.hex_to_rgb(getattr(cfg, "HEADER_TEXT_COLOR", "#BCBCBC"))
+        
         _current_device = device_name
+        showlog.debug(f"[HEADER] Theme cached: bg={_cached_header_bg}, text={_cached_header_text}")
 
-    # --- Theme-aware header colors (unified naming) ---
-    bg_rgb = helper.theme_rgb(device_name, "HEADER_BG_COLOR", "#000000")
-    text_rgb = helper.theme_rgb(device_name, "HEADER_TEXT_COLOR", "#FFFFFF")
+    # --- Use cached colors (no per-frame lookup) ---
+    bg_rgb = _cached_header_bg
+    text_rgb = _cached_header_text
 
     # --- Draw header background ---
     header_text = str(msg)
@@ -311,7 +335,7 @@ def show(screen, msg, device_name=None):
     
     # DEBUG: Log before blitting
     if device_name:
-        showlog.debug(f"*[HEADER DEBUG {device_name}] About to blit text_surf size={text_surf.get_size()}, pos={text_rect.topleft}")
+        showlog.debug(f"[HEADER DEBUG {device_name}] About to blit text_surf size={text_surf.get_size()}, pos={text_rect.topleft}")
     
     screen.blit(text_surf, text_rect)
 

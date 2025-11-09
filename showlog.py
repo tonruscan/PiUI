@@ -151,12 +151,15 @@ def _enqueue_remote(line: str, force: bool = False):
     except Exception:
         pass
 
-    # In LOUPE_MODE, only forward messages whose content begins with '*' or loupe emoji '🔍'
+    # In LOUPE_MODE, only forward starred/loupe lines or warnings/errors
     try:
         if getattr(cfg, "LOUPE_MODE", False) and not force:
             s = (line or "").strip()
             allow = False
+            upper = s.upper()
             if s.startswith("*"):
+                allow = True
+            elif "[WARN" in upper or "[ERROR" in upper:
                 allow = True
             elif s.startswith("[") and "]" in s:
                 try:
@@ -333,12 +336,11 @@ def _direct_write_file(msg: str):
                 check_zone = msg
                 if msg.startswith("[") and "]" in msg:
                     check_zone = msg.split("]", 1)[1].lstrip()
-                # If this line no longer contains a '*' (non-loupe message), skip it entirely
 
-                if "*" not in check_zone and not emoji == "🔍":
-                    # import logit
-                    #logit.log(f"[LOGIT] Skipping non-loupe message in loupe mode: {msg}")
-                    return
+                # Always allow warnings and errors through loupe mode
+                if level not in ("WARN", "ERROR"):
+                    if "*" not in check_zone and emoji != "🔍":
+                        return
         except Exception:
             pass
 
@@ -551,12 +553,19 @@ def log_process(screen=None, msg: str = "", color=None):
         if bool(getattr(cfg, "LOUPE_MODE", False)):
             s = raw
             allow = False
-            if s.startswith("*"):
+            # Always allow warnings/errors regardless of marker
+            if s.upper().startswith("[WARN") or s.upper().startswith("[ERROR"):
+                allow = True
+            elif s.startswith("*"):
                 allow = True
             elif s.startswith("[") and "]" in s:
                 try:
-                    tail_after_tag = s.split("]", 1)[1].lstrip()
-                    if tail_after_tag.startswith("*"):
+                    head, tail_after_tag = s.split("]", 1)
+                    tail_after_tag = tail_after_tag.lstrip()
+                    tag_upper = head.upper()
+                    if tag_upper.startswith("[WARN") or tag_upper.startswith("[ERROR"):
+                        allow = True
+                    elif tail_after_tag.startswith("*"):
                         allow = True
                 except Exception:
                     allow = False

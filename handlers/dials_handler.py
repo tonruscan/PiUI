@@ -115,7 +115,7 @@ class DialsEventHandler:
                     last_state = device_button_memory.get(device_name.upper(), "?") if device_name else "?"
                     showlog.debug(f"[DIALS_HANDLER] Nav button {name} → restore {last_state} later")
                 
-                showlog.debug(f"*[DIALS_HANDLER] Button {name} pressed ({behavior})")
+                showlog.debug(f"[DIALS_HANDLER] Button {name} pressed ({behavior})")
                 select_button_callback(name)
                 
                 try:

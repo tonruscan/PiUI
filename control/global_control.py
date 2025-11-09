@@ -1,7 +1,44 @@
 import showlog
 
+_current_presets = {}  # keep this near the top of the file
+
+
+def _handle_drumbo_instrument_select(msg, ui) -> bool:
+    instrument_id = None
+    if isinstance(msg, tuple) and len(msg) > 1:
+        instrument_id = msg[1]
+
+    if not instrument_id:
+        showlog.warn("*[GLOBAL] drumbo_instrument_select missing instrument_id")
+        return False
+
+    try:
+        from plugins import drumbo_instrument_service as service
+    except Exception as exc:
+        showlog.warn(f"*[GLOBAL] Drumbo service import failed: {exc}")
+        return False
+
+    showlog.debug(f"*[GLOBAL] drumbo_instrument_select → {instrument_id}")
+    spec = service.select(str(instrument_id), auto_refresh=True)
+    if spec is None:
+        return False
+
+    try:
+        from pages import module_base
+        applied = module_base.apply_drumbo_instrument(spec.id)
+        showlog.debug(f"*[GLOBAL] apply_drumbo_instrument result={applied}")
+    except Exception as exc:
+        showlog.warn(f"*[GLOBAL] apply_drumbo_instrument failed: {exc}")
+
+    return True
+
+
 def handle_message(tag, msg, ui):
     try:
+        if tag == "drumbo_instrument_select":
+            if _handle_drumbo_instrument_select(msg, ui):
+                return
+
         if tag is None:
             # Plain string message
             showlog.verbose(msg)
@@ -14,10 +51,6 @@ def handle_message(tag, msg, ui):
             showlog.verbose(tag)
     except Exception as e:
         showlog.error(e)
-
-import showlog
-
-_current_presets = {}  # keep this near the top of the file
 
 def set_current_preset(preset, values=None, program=None):
     """

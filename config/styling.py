@@ -15,6 +15,8 @@ import utils.font_helper as font_helper
 
 # Dial drawing configuration
 DIAL_SUPERSAMPLE = 4        # 1=off, 2 recommended
+DIAL_FACE_SUPERSAMPLE = 4   # cached dial face supersample (override if you want different AA)
+DIAL_FACE_CACHE_VERSION = 2 # bump to force dial face cache rebuild after tuning AA settings
 DIAL_RING_AA_SHELLS = 0.5   # 0..2 (try 1 for a touch more softness)
 DIAL_SIZE = 50
 DIAL_LINE_WIDTH = 4         # circle outline width
@@ -25,6 +27,19 @@ DIAL_PANEL_COLOR = "#0A2F65"     # background panel behind dial
 DIAL_FILL_COLOR = "#000000"      # inner filled circle color
 DIAL_OUTLINE_COLOR = "#000000"   # dial outline color
 DIAL_TEXT_COLOR = "#FF8000"      # label text color
+
+# Label rectangles inherit dial panel color by default
+DIAL_LABEL_COLOR = "#000000"
+
+# Mini dial specific label styling
+MINI_DIAL_LABEL_COLOR = "#0A2752"
+MINI_DIAL_LABEL_TEXT_COLOR = "#FFFFFF"
+MINI_DIAL_LABEL_HEIGHT = 20
+MINI_DIAL_LABEL_PADDING_X = 0
+MINI_DIAL_FONT_SIZE = 16
+
+# Plugin / widget background color (default to dial panel color)
+PLUGIN_BACKGROUND_COLOR = "#0A2F65"
 
 # --- Dial Colors (Offline/Empty) ---
 DIAL_OFFLINE_PANEL   = "#111111"
@@ -51,22 +66,22 @@ TYPE_FONT_SPACING = -3       # pixels of space between value and unit
 
 # ================== BUTTON STYLING ==================
 
-BUTTON_COLOR = "#071C3C"              # default blue
-BUTTON_ACTIVE_COLOR = "#000000"       # highlighted when pressed
-BUTTON_TEXT_COLOR = "#FFFFFF"         # default text
+BUTTON_FILL = "#071C3C"               # normal button fill (default blue)
+BUTTON_OUTLINE = "#0D3A7A"            # button border/outline
+BUTTON_TEXT = "#FFFFFF"               # button text color
+BUTTON_DISABLED_FILL = "#1E1E1E"      # disabled button fill
+BUTTON_DISABLED_TEXT = "#646464"      # disabled button text
+BUTTON_ACTIVE_FILL = "#0050A0"        # active/pressed button fill (brighter blue)
+BUTTON_ACTIVE_TEXT = "#FFFFFF"        # active/pressed button text
 
 BUTTON_SELECTED_COLOR = "#BCBCBC"     # background when page is selected
 BUTTON_TEXT_SELECTED = "#06214B"      # text color when page is selected
-
-# --- Disabled button colors ---
-BUTTON_DISABLED_COLOR = "#333333"     # background
-BUTTON_TEXT_DISABLED = "#777777"      # text
 
 # ================== LABEL STYLING ==================
 
 LABEL_RECT_WIDTH = 130
 LABEL_RECT_HEIGHT = 24
-LABEL_COLOR = "#000000"
+LABEL_COLOR = DIAL_LABEL_COLOR
 LABEL_RECT = False
 
 # ================== HEADER STYLING ==================

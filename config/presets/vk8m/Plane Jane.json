@@ -1,0 +1,29 @@
+{
+  "page_id": "vk8m",
+  "preset_name": "Plane Jane",
+  "variables": {
+    "distortion_value": 64,
+    "reverb_value": 0
+  },
+  "widget_state": {
+    "bar_values": [
+      8,
+      0,
+      0,
+      8,
+      0,
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  "button_states": {
+    "1": 2,
+    "2": 0,
+    "3": 0,
+    "4": 1,
+    "5": 0,
+    "8": 0
+  }
+}

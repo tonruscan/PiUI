@@ -74,9 +74,9 @@ class StateManager:
                     ids_sorted = sorted([str(i) for i in ids])
                 except Exception:
                     ids_sorted = [str(i) for i in ids]
-                showlog.debug(f"*[STATE_MGR] INVENTORY[{src}] param_ids={ids_sorted}")
+                showlog.debug(f"[STATE_MGR] INVENTORY[{src}] param_ids={ids_sorted}")
         except Exception as e:
-            showlog.warn(f"*[STATE_MGR] INVENTORY dump failed: {e}")
+            showlog.warn(f"[STATE_MGR] INVENTORY dump failed: {e}")
 
 
     # --------------------------------------------------------------
@@ -192,7 +192,7 @@ class StateManager:
                                       f"but have src={k_src} want src={src}")
 
         if not updated:
-            showlog.warn(f"*[STATE_MGR] set_value() → Knob {src}:{pid} not found in registry")
+            showlog.warn(f"[STATE_MGR] set_value() → Knob {src}:{pid} not found in registry")
             self._debug_inventory()
         return updated
 

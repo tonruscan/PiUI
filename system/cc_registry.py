@@ -108,7 +108,7 @@ def load_from_device(device_name: str):
 
         # NEW: respect family "type" flag
         if isinstance(family, dict) and family.get("type") == "module":
-            showlog.debug(f"*[CC_REG] '{device_name}' marked type=module — skipping device loader")
+            showlog.debug(f"[CC_REG] '{device_name}' marked type=module — skipping device loader")
             return
         
         if not family_key:
@@ -204,7 +204,7 @@ def load_from_module(module_name: str, registry: dict = None, device_name: str =
                 imported += 1
 
 
-        showlog.debug(f"*[CC_REG] Loaded {imported} module dials from {module_name} (src={src_name})")
+        showlog.debug(f"[CC_REG] Loaded {imported} module dials from {module_name} (src={src_name})")
 
     except Exception as e:
         showlog.error(f"[CC_REG] load_from_module failed for {module_name}: {e}")
@@ -232,9 +232,9 @@ def attach_mapping_to_dials(device_name: str, dials: list) -> None:
             d.sm_source_name = device_name
             d.sm_param_id    = pid
             mapped += 1
-            showlog.debug(f"*[CC_REG] attach: dial {getattr(d,'id','?')} '{label}' -> src={device_name} pid={pid}")
+            showlog.debug(f"[CC_REG] attach: dial {getattr(d,'id','?')} '{label}' -> src={device_name} pid={pid}")
 
-        showlog.debug(f"*[CC_REG] attach: mapped {mapped} dials for {device_name}")
+        showlog.debug(f"[CC_REG] attach: mapped {mapped} dials for {device_name}")
 
     except Exception as e:
         showlog.warn(f"[CC_REG] attach_mapping_to_dials failed for {device_name}: {e}")

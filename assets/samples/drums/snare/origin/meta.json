@@ -1,0 +1,42 @@
+{
+  "id": "origin",
+  "display_name": "Origin",
+  "category": "snare",
+  "banks": [
+    {
+      "id": "A",
+      "dials": [
+        {
+          "slot": 1,
+          "label": "OH",
+          "variable": "mic_1_level",
+          "range": [
+            0,
+            127
+          ],
+          "default": 0
+        },
+        {
+          "slot": 2,
+          "label": "ROOM",
+          "variable": "mic_2_level",
+          "range": [
+            0,
+            127
+          ],
+          "default": 0
+        },
+        {
+          "slot": 3,
+          "label": "TOP",
+          "variable": "mic_3_level",
+          "range": [
+            0,
+            127
+          ],
+          "default": 0
+        }
+      ]
+    }
+  ]
+}

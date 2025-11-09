@@ -146,11 +146,11 @@ class PluginManager:
                 try:
                     # Import the module
                     mod = importlib.import_module(f"{path}.{name}")
-                    
+
                     # Look for Plugin subclass (conventionally named "Plugin")
                     if hasattr(mod, "Plugin"):
                         plugin_class = getattr(mod, "Plugin")
-                        
+
                         # Verify it's actually a Plugin subclass
                         if isinstance(plugin_class, type) and issubclass(plugin_class, Plugin):
                             plugin = plugin_class()
@@ -160,9 +160,15 @@ class PluginManager:
                             showlog.warn(f"[PluginManager] {path}.{name}.Plugin is not a valid Plugin subclass")
                     else:
                         showlog.debug(f"[PluginManager] {path}.{name} has no Plugin class (skipping)")
-                
+				
                 except Exception as e:
-                    showlog.error(f"[PluginManager] Failed to load plugin '{name}': {e}")
+                    message = str(e)
+                    if isinstance(e, ImportError) and "has been removed" in message:
+                        showlog.info(
+                            f"[PluginManager] Skipping legacy plugin '{name}': {message}"
+                        )
+                    else:
+                        showlog.error(f"[PluginManager] Failed to load plugin '{name}': {e}")
                     # Continue loading other plugins
                     continue
         

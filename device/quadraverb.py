@@ -263,7 +263,7 @@ def toggle_page_mute(page_key: str, dev_name: str, msg_queue=None):
         # Choose appropriate SysEx
         syx_str = mute_codes.get(page_key) if not is_muted else unmute_codes.get(page_key)
         if not syx_str:
-            showlog.log(None, f"*[QV MUTE] No SysEx mapping for page {page_key}")
+            showlog.log(None, f"[QV MUTE] No SysEx mapping for page {page_key}")
             if msg_queue:
                 msg_queue.put(f"[MUTE] No SysEx mapping for page {page_key}")
             return

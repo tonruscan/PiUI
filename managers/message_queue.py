@@ -29,6 +29,7 @@ class MessageQueueProcessor:
         "select_button": "page",
         "remote_char": "page",
         "mixer_value": "page",
+        "drumbo_instrument_select": "global",
     }
     
     CONTROL_MODULES = {
@@ -127,6 +128,13 @@ class MessageQueueProcessor:
         """
         tag = msg[0]
         
+        # Debug: Log remote_char messages
+        if tag == "remote_char":
+            showlog.debug(f"[MSG_QUEUE] Received remote_char message: {msg}")
+            showlog.debug(f"[MSG_QUEUE] ui_context keys: {list(ui_context.keys())}")
+            showlog.debug(f"[MSG_QUEUE] ui_mode from context: {ui_context.get('ui_mode')}")
+            showlog.debug(f"[MSG_QUEUE] About to call _handle_remote_char")
+        
         # Route to specific handlers
         if tag == "sysex_update":
             self._handle_sysex_update(msg, ui_context)
@@ -136,6 +144,7 @@ class MessageQueueProcessor:
             self._handle_button_select(msg)
         elif tag == "remote_char":
             self._handle_remote_char(msg, ui_context)
+            showlog.debug(f"[MSG_QUEUE] _handle_remote_char returned")
         elif tag == "entity_select":
             self._handle_entity_select(msg)
         elif tag == "device_selected":
@@ -150,6 +159,9 @@ class MessageQueueProcessor:
         elif tag == "invalidate_rect":
             # Redraw specific rect
             pass
+        elif tag == "drumbo_instrument_select":
+            # Selection handled via control routing
+            showlog.debug(f"*[MSG_QUEUE] drumbo_instrument_select received: {msg}")
         else:
             # Unknown tag
             if tag not in self.CONTROL_ROUTING:
@@ -189,8 +201,13 @@ class MessageQueueProcessor:
     
     def _handle_remote_char(self, msg: tuple, ui_context: Dict):
         """Handle remote_char message."""
+        showlog.debug(f"*[MSG_QUEUE._handle_remote_char] on_remote_char exists: {self.on_remote_char is not None}")
         if self.on_remote_char:
+            showlog.debug(f"*[MSG_QUEUE._handle_remote_char] Calling on_remote_char callback")
             self.on_remote_char(msg, ui_context)
+            showlog.debug(f"*[MSG_QUEUE._handle_remote_char] Callback returned")
+        else:
+            showlog.warn(f"*[MSG_QUEUE._handle_remote_char] No on_remote_char callback registered!")
     
     def _handle_entity_select(self, msg: tuple):
         """Handle entity_select message."""

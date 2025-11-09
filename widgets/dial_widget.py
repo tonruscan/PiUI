@@ -2,16 +2,18 @@
 import pygame
 from assets.dial import Dial
 import config as cfg
-import helper
 import showlog
 from pages import page_dials
+from widgets.dirty_mixin import DirtyWidgetMixin
 
-class DialWidget:
+
+class DialWidget(DirtyWidgetMixin):
     """
     A single interactive Dial wrapped as a widget.
     Will later be positioned by the module grid system.
     """
     def __init__(self, uid: str, rect: pygame.Rect, config: dict):
+        super().__init__()
         self.uid = uid
         self.rect = pygame.Rect(rect)
         self.config = config or {}
@@ -24,6 +26,23 @@ class DialWidget:
         self.dial.range = config.get("range", [0, 127])
         self.dial.options = config.get("options")
         self.dial.type = config.get("type", "raw")
+        dial_size_override = config.get("dial_size")
+        if dial_size_override is not None:
+            try:
+                new_radius = int(round(float(dial_size_override)))
+                if new_radius > 0:
+                    self.dial.radius = new_radius
+                    panel_size = self.dial.radius * 2 + 20
+                    self.rect = pygame.Rect(0, 0, panel_size, panel_size)
+                    self.rect.center = (cx, cy)
+            except Exception:
+                pass
+        visual_mode = config.get("visual_mode")
+        if visual_mode is not None:
+            try:
+                self.dial.set_visual_mode(visual_mode)
+            except ValueError as exc:
+                showlog.warn(f"[DialWidget] Invalid visual_mode '{visual_mode}' for {uid}: {exc}")
 
         # Simple interaction state
         self.dragging = False
@@ -33,6 +52,8 @@ class DialWidget:
     # ------------------------------------------------------------------
     def handle_event(self, event) -> bool:
         """Return True if the event was consumed."""
+        if getattr(self.dial, "visual_mode", "default") == "hidden":
+            return False
         if event.type == pygame.MOUSEBUTTONDOWN and hasattr(event, "pos"):
             if self._hit(event.pos):
                 self.dragging = True
@@ -40,7 +61,10 @@ class DialWidget:
         elif event.type == pygame.MOUSEBUTTONUP:
             self.dragging = False
         elif event.type == pygame.MOUSEMOTION and self.dragging:
+            old_value = self.dial.value
             self.dial.update_from_mouse(*event.pos)
+            if old_value != self.dial.value:
+                self.mark_dirty()  # Mark dirty when value changes
             return True
         return False
 
@@ -48,9 +72,14 @@ class DialWidget:
     # Drawing
     # ------------------------------------------------------------------
     def draw(self, screen, device_name=None, offset_y=0):
-        """Draw this dial using the shared page_dials renderer."""
+        """
+        Draw this dial using the shared page_dials renderer.
+        Returns the dirty rect that was drawn.
+        """
+        if getattr(self.dial, "visual_mode", "default") == "hidden":
+            return None
         try:
-            page_dials.redraw_single_dial(
+            rect = page_dials.redraw_single_dial(
                 screen,
                 self.dial,
                 offset_y=offset_y,
@@ -59,8 +88,10 @@ class DialWidget:
                 update_label=True,
                 force_label=False,
             )
+            return rect
         except Exception as e:
-            showlog.warn(f"[DialWidget] draw failed for {self.uid}: {e}")
+            showlog.warn(f"[DialWidget] Draw failed for {self.uid}: {e}")
+            return None
 
     # ------------------------------------------------------------------
     # Helpers

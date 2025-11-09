@@ -41,4 +41,4 @@ else:
 ACTIVE_PROFILE = _env if _env in ("development", "dev", "safe") else "production"
 
 print(f"[CONFIG] Active profile: {ACTIVE_PROFILE}")
-print(f"[CONFIG] FPS_NORMAL={FPS_NORMAL}, FPS_TURBO={FPS_TURBO}, DEBUG={DEBUG}")
+print(f"[CONFIG] FPS_NORMAL={FPS_NORMAL}, FPS_BURST={FPS_BURST}, DEBUG={DEBUG}")

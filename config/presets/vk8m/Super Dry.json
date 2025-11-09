@@ -1,0 +1,29 @@
+{
+  "page_id": "vk8m",
+  "preset_name": "Super Dry",
+  "variables": {
+    "distortion_value": 39,
+    "reverb_value": 0
+  },
+  "widget_state": {
+    "bar_values": [
+      8,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  "button_states": {
+    "1": 0,
+    "2": 0,
+    "3": 1,
+    "4": 0,
+    "5": 2,
+    "8": 0
+  }
+}

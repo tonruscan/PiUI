@@ -67,10 +67,36 @@ def get_theme(device_name):
     Return THEME dict for a device or module.
     - Devices: load their own THEME from /device/<name>.py
     - Modules: inherit the currently active device's theme
+    - Plugins: check active module class for THEME
     """
     import os, importlib, showlog
     from dialhandlers import current_device_name
     from devices import DEVICES_DIR
+
+    showlog.info(f"[THEME] get_theme() called with device_name='{device_name}'")
+
+    # ──────────────────────────────────────────────────────────────
+    # 0️⃣  Check if there's an active module with a THEME (plugin support)
+    # ──────────────────────────────────────────────────────────────
+    try:
+        from pages import module_base
+        active_module = getattr(module_base, "_ACTIVE_MODULE", None)
+        showlog.info(f"[THEME] Checking active module: {active_module}")
+        
+        if active_module and hasattr(active_module, "THEME"):
+            theme = getattr(active_module, "THEME")
+            showlog.info(f"[THEME] Found THEME attribute: {type(theme)}, is_dict={isinstance(theme, dict)}, empty={not theme if isinstance(theme, dict) else 'N/A'}")
+            if isinstance(theme, dict) and theme:
+                showlog.info(f"[THEME] ✅ Using THEME from active module class: {list(theme.keys())[:5]}")
+                return theme
+            else:
+                showlog.info(f"[THEME] THEME found but invalid or empty")
+        else:
+            showlog.info(f"[THEME] Active module has no THEME attribute")
+    except Exception as e:
+        showlog.info(f"[THEME] Active module check failed: {e}")
+        import traceback
+        showlog.info(f"[THEME] Traceback: {traceback.format_exc()}")
 
     # ──────────────────────────────────────────────────────────────
     # 1️⃣  Detect and resolve module → parent device theme
@@ -85,11 +111,14 @@ def get_theme(device_name):
         # If this entity isn't an actual device file, assume it's a module
         if devname_lower not in dev_files:
             parent_dev = getattr(dialhandlers, "current_device_name", None)
-            if isinstance(parent_dev, str) and parent_dev.lower() != devname_lower:
+            # Only inherit if parent device is different AND not None/empty
+            if isinstance(parent_dev, str) and parent_dev.strip() and parent_dev.lower() != devname_lower:
                 showlog.debug(f"[THEME] '{device_name}' appears to be a module → using parent device '{parent_dev}' theme")
                 device_name = parent_dev
             else:
-                showlog.warn(f"[THEME] Module '{device_name}' has no active device to inherit theme from")
+                # Module with no parent device → return empty theme (use config defaults)
+                showlog.debug(f"[THEME] Module '{device_name}' has no parent device → using config defaults")
+                return {}
 
     except Exception as e:
         showlog.warn(f"[THEME] Module inheritance check failed for '{device_name}': {e}")
@@ -136,7 +165,41 @@ def get_theme(device_name):
         showlog.error(f"THEME fallback scan failed for '{device_name}': {e}")
 
     # ──────────────────────────────────────────────────────────────
-    # 4️⃣  Final fallback → empty dict (use cfg defaults)
+    # 4️⃣  Plugin theme lookup (for standalone plugins)
+    # ──────────────────────────────────────────────────────────────
+    try:
+        # Try to load from plugins folder
+        plugin_module_name = f"plugins.{device_name.lower()}_plugin"
+        showlog.info(f"[THEME] Attempting to load plugin: {plugin_module_name}")
+        plugin_module = importlib.import_module(plugin_module_name)
+        showlog.info(f"[THEME] Successfully imported plugin: {plugin_module_name}")
+        
+        # Check if the plugin module has a THEME attribute
+        if hasattr(plugin_module, "THEME"):
+            theme = getattr(plugin_module, "THEME")
+            showlog.info(f"[THEME] ✅ Loaded THEME from plugin module: {plugin_module_name}")
+            return theme
+        else:
+            showlog.info(f"[THEME] No module-level THEME in {plugin_module_name}")
+        
+        # Also check if the module class has THEME (e.g., VK8M.THEME)
+        showlog.info(f"[THEME] Checking classes in {plugin_module_name} for THEME attribute")
+        for attr_name in dir(plugin_module):
+            attr = getattr(plugin_module, attr_name)
+            if hasattr(attr, "THEME") and isinstance(getattr(attr, "THEME"), dict):
+                theme = getattr(attr, "THEME")
+                showlog.info(f"[THEME] ✅ Loaded THEME from plugin class: {plugin_module_name}.{attr_name}")
+                return theme
+        
+        showlog.info(f"[THEME] No THEME found in any class of {plugin_module_name}")
+                
+    except Exception as e:
+        showlog.warn(f"[THEME] Plugin theme lookup failed for '{device_name}': {e}")
+        import traceback
+        showlog.warn(f"[THEME] Traceback: {traceback.format_exc()}")
+
+    # ──────────────────────────────────────────────────────────────
+    # 5️⃣  Final fallback → empty dict (use cfg defaults)
     # ──────────────────────────────────────────────────────────────
     return {}
 

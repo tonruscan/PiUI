@@ -45,7 +45,7 @@ def log(msg: str):
         if line == _last_msg:
             return
         _last_msg = line
-        #line = f"*** {line} ***"
+        #line = f"** {line} ***"
         if cfg.LOG_IT_ACTIVE:
             _write_file(line)
             _enqueue_net(line)

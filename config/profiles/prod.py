@@ -4,9 +4,10 @@ Default configuration for production/hardware use.
 """
 
 # Override performance settings for production
-FPS_NORMAL = 25
-FPS_TURBO = 120
-FPS_LOW = 12
+FPS_LOW    = 12          # Static pages
+FPS_NORMAL = 60          # Normal idle FPS
+FPS_HIGH   = 100         # MIDI/CV interaction pages
+FPS_BURST  = 100         # Burst mode during dial interactions (matches audio 100Hz)
 
 # Production logging (minimal)
 LOG_LEVEL = 0

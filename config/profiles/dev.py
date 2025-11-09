@@ -4,9 +4,10 @@ Enhanced logging and slower frame rates for easier debugging.
 """
 
 # Development performance (easier to debug)
-FPS_NORMAL = 15         # Slower for easier visual debugging
-FPS_TURBO = 60          # Half speed turbo
-FPS_LOW = 8
+FPS_LOW    = 8           # Static pages
+FPS_NORMAL = 15          # Slower for easier visual debugging
+FPS_HIGH   = 60          # MIDI/CV pages in dev
+FPS_BURST  = 60          # Half speed burst for debugging
 
 # Verbose logging for development
 LOG_LEVEL = 2           # INFO level

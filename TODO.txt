@@ -38,8 +38,8 @@ screen dimmer
 
 ---
 
-update from device only once per device load (devices.py / update_from_device)
-
+update theme from device only once per device load (devices.py / update_from_device)
+            showlog.verbose(f"[THEME] device_name='{device_name}', key='{key}', active_module={active_module}")
 
 ---
 load presets on separate thread (non blocking)
@@ -63,3 +63,83 @@ OSK with theme
 
 
 
+--- 2 button auto back up (new numbdered folder backup and temp backup (save game))
+
+
+-- drawbar animator --
+
+- fix renderered so it uses a dict and not hardcoed in loop
+- theme calls in loop fix
+- device causes error when loading plugin:
+
+[14:40:28] 🔴 [ERROR helper.py:108] [THEME] Device lookup failed: No module named 'device.ascii_animator'
+Traceback (most recent call last):
+  File "/home/jaine/share/UI/build/helper.py", line 98, in get
+    dev_module = importlib.import_module(f"device.{device_name.lower()}")
+  File "/usr/lib/python3.9/importlib/__init__.py", line 127, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+  File "<frozen importlib._bootstrap>", line 1030, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1007, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 984, in _find_and_load_unlocked
+ModuleNotFoundError: No module named 'device.ascii_animator'
+
+
+** remove old presets.py
+
+
+
+ASCII
+-----
+
+mirrored x,y pattern 
+auto advance 
+loop until start
+loop yoyo mode 
+1x 2x 3x 4x speed per column
+mirror draw x and yet
+auto morph? start end and it autotweens?
+
+drawbar
+-------
+
+make the frame counter more spaced out and fixed chars no moving
+
+
+shutdown
+--------
+
+print shutdown text to screen
+
+dials
+-----
+
+latch mode
+
+side buttons
+------------
+
+accept icons
+
+
+drum machine
+------------
+make one
+*midi in
+auto pickup from samples folder
+*remove mini dial border
+slightly different color a and backmute when touch dial
+pan by sliding the label which colors the background bar
+
+
+
+presets
+-------
+
+color sections with round corners under each type snare, kick etc... 
+
+
+To fix
+------
+ - renderer - elif ui_mode in ("mixer", "vibrato", "vk8m_main", "ascii_animator", "drumbo", "drumbo_main", "test_minimal_main"):
+
+module_base_refactor_plan.md

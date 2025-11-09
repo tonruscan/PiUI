@@ -31,10 +31,29 @@ class Dial:
         self.is_empty = False  # True if dial label is "EMPTY"
         self.is_muted = False  # True if page is muted (set externally)
         self.dirty = False     # True if dial needs redraw (dirty rect)
+        self.visual_mode = "default"  # Rendering mode: default|hidden|custom
 
     # --------------------------------------------------------------
     # Utility methods
     # --------------------------------------------------------------
+    def set_visual_mode(self, mode: str):
+        """Control whether the stock dial renderer should draw this dial."""
+        if mode is None:
+            normalized = "default"
+        else:
+            normalized = str(mode).strip().lower()
+            if normalized in ("default", "visible", ""):
+                normalized = "default"
+            elif normalized == "hidden":
+                pass
+            else:
+                raise ValueError(f"Unsupported dial visual_mode '{mode}'")
+
+        if getattr(self, "visual_mode", "default") != normalized:
+            self.visual_mode = normalized
+            if hasattr(self, "dirty"):
+                self.dirty = True
+
     def on_mouse_up(self):
         self.sticky_max = False
         self.sticky_min = False

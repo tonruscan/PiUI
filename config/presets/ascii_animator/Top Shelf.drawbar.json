@@ -1,0 +1,26 @@
+{
+  "page_id": "ascii_animator",
+  "preset_name": "Top Shelf",
+  "variables": {},
+  "widget_state": {
+    "frame_total": 1,
+    "rows": 9,
+    "cols": 9,
+    "frames": [
+      [
+        "*********",
+        ".........",
+        ".........",
+        ".........",
+        ".........",
+        ".........",
+        ".........",
+        ".........",
+        "........."
+      ]
+    ]
+  },
+  "button_states": {
+    "1": 0
+  }
+}

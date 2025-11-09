@@ -118,13 +118,29 @@ class MessageMixin:
         _, char = msg
         ui_mode = ui_context.get("ui_mode")
         
-        if ui_mode == "vibrato":
-            from pages import module_base as vibrato
-            if hasattr(vibrato, "is_preset_ui_active") and vibrato.is_preset_ui_active():
-                vibrato.handle_remote_input(char)
+        showlog.debug(f"*[MESSAGE_MIXIN] === REMOTE_CHAR RECEIVED ===")
+        showlog.debug(f"*[MESSAGE_MIXIN] char: '{char}' (repr: {repr(char)})")
+        showlog.debug(f"*[MESSAGE_MIXIN] ui_mode: '{ui_mode}'")
+        showlog.debug(f"*[MESSAGE_MIXIN] ui_context keys: {list(ui_context.keys())}")
+        
+        # Check if any module_base page has an active preset UI
+        if ui_mode in ("vibrato", "vk8m_main"):
+            showlog.debug(f"*[MESSAGE_MIXIN] UI mode matches module page!")
+            from pages import module_base
+            preset_ui_active = hasattr(module_base, "is_preset_ui_active") and module_base.is_preset_ui_active()
+            showlog.debug(f"*[MESSAGE_MIXIN] preset UI active: {preset_ui_active}")
+            if preset_ui_active:
+                showlog.debug(f"*[MESSAGE_MIXIN] Routing to module_base.handle_remote_input()")
+                module_base.handle_remote_input(char)
+                showlog.debug(f"*[MESSAGE_MIXIN] Routing complete")
+            else:
+                showlog.debug(f"*[MESSAGE_MIXIN] Preset UI not active, ignoring char")
         elif ui_mode == "patchbay":
+            showlog.debug(f"*[MESSAGE_MIXIN] Patchbay mode detected, routing to patchbay")
             from pages import patchbay
             patchbay.handle_remote_input(char)
+        else:
+            showlog.debug(f"*[MESSAGE_MIXIN] Unhandled ui_mode '{ui_mode}', ignoring remote char")
     
     def _handle_patch_select(self, msg: str, ui_context: dict):
         """Handle patch select message."""
