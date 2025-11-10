@@ -5,7 +5,7 @@
       "source_name": "spectra_switch",
       "param_id": "5119",
       "label": "Spectra Main 1",
-      "value": 89,
+      "value": 0,
       "range": [
         0,
         127
