@@ -28,9 +28,10 @@ from __future__ import annotations
 import os
 import re
 import subprocess
+import sys
 from dataclasses import dataclass
 from importlib import import_module
-from typing import Dict, Iterable, Optional, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple
 
 # Known resolution → profile mappings.
 _RESOLUTION_PROFILE_MAP: Dict[Tuple[int, int], str] = {
@@ -47,6 +48,48 @@ _PLATFORM_ALIASES: Dict[str, str] = {
     "pi-5": "pi5",
     "rpi5": "pi5",
 }
+
+
+_PENDING_PLATFORM_LOGS: List[Tuple[str, str, bool]] = []
+
+
+def _queue_platform_log(level: str, message: str, loupe: bool = False) -> None:
+    cfg_module = sys.modules.get("config")
+    enqueue = getattr(cfg_module, "_queue_startup_log", None) if cfg_module else None
+
+    if callable(enqueue):
+        if _PENDING_PLATFORM_LOGS:
+            backlog = list(_PENDING_PLATFORM_LOGS)
+            _PENDING_PLATFORM_LOGS.clear()
+            for pending_level, pending_message, pending_loupe in backlog:
+                enqueue(pending_level, pending_message, pending_loupe)
+
+        enqueue(level, message, loupe)
+    else:
+        _PENDING_PLATFORM_LOGS.append((level, message, loupe))
+
+
+def _flush_pending_platform_logs() -> None:
+    if not _PENDING_PLATFORM_LOGS:
+        return
+
+    cfg_module = sys.modules.get("config")
+    enqueue = getattr(cfg_module, "_queue_startup_log", None) if cfg_module else None
+    if not callable(enqueue):
+        return
+
+    backlog = list(_PENDING_PLATFORM_LOGS)
+    _PENDING_PLATFORM_LOGS.clear()
+    for pending_level, pending_message, pending_loupe in backlog:
+        enqueue(pending_level, pending_message, pending_loupe)
+
+
+def _log_debug(message: str) -> None:
+    _queue_platform_log("debug", f"[PLATFORM] {message}", loupe=True)
+
+
+def _log_warn(message: str) -> None:
+    _queue_platform_log("warn", f"[PLATFORM] {message}")
 
 
 @dataclass(frozen=True)
@@ -153,6 +196,10 @@ def _detect_platform() -> PlatformInfo:
     if override_id:
         profile_id = _PLATFORM_ALIASES.get(override_id.strip().lower())
         if not profile_id:
+            _log_warn(
+                f"PIUI_PLATFORM override '{override_id}' is not recognized;"
+                f" known aliases={sorted(set(_PLATFORM_ALIASES))}"
+            )
             raise ValueError(
                 f"PIUI_PLATFORM override '{override_id}' is not recognized; "
                 f"known: {sorted(set(_PLATFORM_ALIASES))}"
@@ -160,6 +207,9 @@ def _detect_platform() -> PlatformInfo:
         settings = _load_profile_settings(profile_id)
         width = int(settings.get("SCREEN_WIDTH", 800))
         height = int(settings.get("SCREEN_HEIGHT", 480))
+        _log_debug(
+            f"Using PIUI_PLATFORM override '{override_id}' -> profile '{profile_id}'"
+        )
         return PlatformInfo(
             id=profile_id,
             screen_width=width,
@@ -174,18 +224,40 @@ def _detect_platform() -> PlatformInfo:
 
     if override_res:
         resolution = _parse_resolution(override_res)
+        if resolution:
+            _log_debug(
+                f"Using PIUI_SCREEN_RES override '{override_res}' -> {resolution[0]}x{resolution[1]}"
+            )
+        else:
+            _log_warn(
+                f"PIUI_SCREEN_RES override '{override_res}' could not be parsed"
+            )
     if not resolution:
         detection_source = "sysfs"
         resolution = _detect_resolution_from_sysfs()
+        if resolution:
+            _log_debug(
+                f"Detected framebuffer resolution from sysfs: {resolution[0]}x{resolution[1]}"
+            )
     if not resolution:
         detection_source = "fbset"
         resolution = _detect_resolution_from_fbset()
+        if resolution:
+            _log_debug(
+                f"Detected framebuffer resolution from fbset: {resolution[0]}x{resolution[1]}"
+            )
     if not resolution:
         detection_source = "default"
         resolution = (800, 480)
+        _log_warn(
+            "Falling back to default resolution 800x480 (could not detect framebuffer size)"
+        )
 
     profile_id = _resolve_profile_for_resolution(resolution)
     settings = _load_profile_settings(profile_id)
+    _log_debug(
+        f"Resolved profile '{profile_id}' for resolution {resolution[0]}x{resolution[1]}"
+    )
 
     return PlatformInfo(
         id=profile_id,

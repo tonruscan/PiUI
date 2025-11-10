@@ -15,6 +15,7 @@ import navigator
 import time
 import config.performance as perf
 import config.layout as cfg
+from . import color_correction
 
 class Renderer:
     """Main rendering coordinator."""
@@ -151,6 +152,8 @@ class Renderer:
         
         # Draw log bar
         self._draw_log_bar()
+        # Apply screen-wide color calibration
+        color_correction.apply(self.screen)
     
     def _draw_header(self, ui_mode: str, header_text: str, offset_y: int = 0):
         """
@@ -199,19 +202,12 @@ class Renderer:
             if not self._should_draw_log_bar():
                 return None  # Skip if not time yet
 
-            import config as cfg
             showlog.draw_bar(self.screen, fps_value=fps)
-            log_h = getattr(cfg, "LOG_BAR_HEIGHT", 20)
-            return pygame.Rect(
-                0,
-                self.screen.get_height() - log_h,
-                self.screen.get_width(),
-                log_h,
-            )
-        except Exception:
-            return None
+            log_bar_h = getattr(cfg, "LOG_BAR_HEIGHT", 20)
+            rect = pygame.Rect(0, self.screen.get_height() - log_bar_h, self.screen.get_width(), log_bar_h)
+            color_correction.apply(self.screen, rect)
+            return rect
+        except Exception as e:
+            showlog.error(f"[RENDERER] Log bar draw error: {e}")
 
-    
-    def present_frame(self):
-        """Present the rendered frame."""
-        pygame.display.flip()
+        return None

@@ -22,6 +22,7 @@ PLUGIN_METADATA = {
 
 _device_buttons = []
 _font = None
+_font_size = 0
 _current_page = 0   # starts at first page
 # -------------------------------------------------------
 # Pagination button scaling (single point of truth)
@@ -74,18 +75,40 @@ DEBUG_MODE = False  # Set to False to disable debug outlines
 
 def draw_ui(screen, exit_rect, header_text, pressed_button, offset_y=0):
     """Draw the device selection page with dropdown offset support."""
-    global _font
-    if _font is None:
-        _font = pygame.font.SysFont("Arial", 26, bold=True)
+    global _font, _font_size
+
+    ui_scale_x = getattr(cfg, "UI_SCALE", None)
+    if not ui_scale_x or ui_scale_x <= 0:
+        try:
+            ui_scale_x = max(1.0, cfg.SCREEN_WIDTH / 800)
+        except Exception:
+            ui_scale_x = 1.0
+
+    ui_scale_y = getattr(cfg, "UI_SCALE_Y", None)
+    if not ui_scale_y or ui_scale_y <= 0:
+        try:
+            ui_scale_y = max(1.0, cfg.SCREEN_HEIGHT / 480)
+        except Exception:
+            ui_scale_y = ui_scale_x
+
+    def scale_x(value: float) -> int:
+        return int(round(value * ui_scale_x))
+
+    def scale_y(value: float) -> int:
+        return int(round(value * ui_scale_y))
+
+    def pos_y(base: float) -> int:
+        return scale_y(base) + offset_y
+
+    font_px = max(18, scale_y(26))
+    if _font is None or _font_size != font_px:
+        _font = pygame.font.SysFont("Arial", font_px, bold=True)
+        _font_size = font_px
 
     # ✅ only clear the main area (leave bottom 20px intact for log/status)
     bg_color = cfg.COLOR_BG if hasattr(cfg, "COLOR_BG") else (0, 0, 0)
-    screen.fill(bg_color, (0, 0, screen.get_width(), screen.get_height() - 20))
-
-
-    # match Presets/Dials/Patchbay pattern: slide content by header dropdown offset
-    def sy(y):
-        return y + offset_y
+    log_bar_h = getattr(cfg, "LOG_BAR_HEIGHT", 20)
+    screen.fill(bg_color, (0, 0, screen.get_width(), screen.get_height() - log_bar_h))
 
     global _current_page
 
@@ -106,14 +129,20 @@ def draw_ui(screen, exit_rect, header_text, pressed_button, offset_y=0):
 
     # --- Uniform two-row layout in JSON order ---
     w = screen.get_width()
-    device_select_top = getattr(cfg, "DEVICE_BUTTON_TOP_PADDING", 60)
-    row_gap = 180
-    row_y = [device_select_top, device_select_top + row_gap]
+    device_select_top_base = getattr(cfg, "DEVICE_BUTTON_TOP_PADDING", 60)
+    row_gap_base = 180
+    row_y_base = [device_select_top_base, device_select_top_base + row_gap_base]
 
-    tile_w = 140
-    tile_h = 160
-    img_size = 120
-    gap_x = 40
+    tile_w = scale_x(140)
+    tile_h = scale_y(160)
+    img_w = max(1, scale_x(120))
+    img_h = max(1, scale_y(120))
+    gap_x = scale_x(40)
+    border_radius = max(8, min(scale_x(12), scale_y(12)))
+    debug_border_radius = max(2, min(scale_x(4), scale_y(4)))
+    hit_inflate_x = max(6, scale_x(10))
+    hit_inflate_y = max(6, scale_y(10))
+    highlight_width = max(2, min(scale_x(3), scale_y(3)))
 
     # Split the current page's buttons into two rows
     visible = len(buttons_to_draw)
@@ -136,40 +165,51 @@ def draw_ui(screen, exit_rect, header_text, pressed_button, offset_y=0):
         btn.pop("_rect", None)
 
 
-    idx_global = 0
     for r, (start_idx, count) in enumerate(rows):
         if count <= 0:
             continue
         # Use a fixed left edge so shorter rows align left under the top row
         start_x = grid_left_x
-        y_top = sy(row_y[r])
+        base_y = row_y_base[r]
+        y_top = pos_y(base_y)
 
         for i in range(count):
             btn = buttons_to_draw[start_idx + i]
             x_left = start_x + i * (tile_w + gap_x)
             # Image rect centered within tile area
             if btn["image"]:
-                img = pygame.transform.smoothscale(btn["image"], (img_size, img_size))
+                img = pygame.transform.smoothscale(btn["image"], (img_w, img_h))
                 img_rect = img.get_rect()
-                img_rect.center = (x_left + tile_w // 2, y_top + img_size // 2)
+                img_rect.center = (x_left + tile_w // 2, y_top + img_h // 2)
                 screen.blit(img, img_rect)
             else:
-                img_rect = pygame.Rect(x_left + (tile_w - img_size) // 2, y_top, img_size, img_size)
-                pygame.draw.rect(screen, (60, 60, 60), img_rect, border_radius=12)
+                img_rect = pygame.Rect(
+                    x_left + (tile_w - img_w) // 2,
+                    y_top,
+                    img_w,
+                    img_h,
+                )
+                pygame.draw.rect(screen, (60, 60, 60), img_rect, border_radius=border_radius)
                 label = _font.render(btn["label"], True, (200, 200, 200))
                 screen.blit(label, label.get_rect(center=img_rect.center))
             
             # Store hit rect for clicks using the tile area (labels are hidden)
             tile_rect = pygame.Rect(x_left, y_top, tile_w, tile_h)
-            hit_rect = tile_rect.inflate(10, 10)
+            hit_rect = tile_rect.inflate(hit_inflate_x, hit_inflate_y)
             btn["_rect"] = hit_rect
 
             # Highlight if pressed
             if pressed_button == str(btn["id"]):
-                pygame.draw.rect(screen, (255, 200, 0), hit_rect, 3, border_radius=10)
+                pygame.draw.rect(
+                    screen,
+                    (255, 200, 0),
+                    hit_rect,
+                    highlight_width,
+                    border_radius=border_radius,
+                )
 
             if DEBUG_MODE:
-                pygame.draw.rect(screen, (255, 255, 0), hit_rect, 1)
+                pygame.draw.rect(screen, (255, 255, 0), hit_rect, max(1, debug_border_radius // 2))
 
 
     # -------------------------------------------------------
@@ -192,29 +232,22 @@ def draw_ui(screen, exit_rect, header_text, pressed_button, offset_y=0):
             # Mirror for UP
             arrow_up_img = pygame.transform.flip(arrow_img, False, True)
 
-            screen_w, screen_h = screen.get_size()
-            tile_w = 140
-            tile_h = 123
-            gap_x = 33
+            screen_w, _ = screen.get_size()
 
             # --- layout reference for last row ---
-            device_select_top = getattr(cfg, "DEVICE_BUTTON_TOP_PADDING", 60)
-            row_gap = 180
-            last_row_y = device_select_top + row_gap
-            bottom_y = last_row_y + tile_h  # bottom of last device tile
+            last_row_top = pos_y(row_y_base[1] if len(row_y_base) > 1 else row_y_base[0])
+            bottom_y = last_row_top + tile_h
 
             # --- arrow sizing ---
-            arrow_scale = 1  # adjust to taste
-            arrow_w = int(arrow_img.get_width() * arrow_scale)
-            arrow_h = int(arrow_img.get_height() * arrow_scale)
+            arrow_w = max(12, scale_x(arrow_img.get_width()))
+            arrow_h = max(12, scale_y(arrow_img.get_height()))
             arrow_img = pygame.transform.smoothscale(arrow_img, (arrow_w, arrow_h))
             arrow_up_img = pygame.transform.smoothscale(arrow_up_img, (arrow_w, arrow_h))
 
             # --- positioning ---
             # Horizontal center: midway between last button right edge and screen edge
-            last_btn_right = (
-                (w - (4 * tile_w + 3 * gap_x)) // 2 + 3 * (tile_w + gap_x) + tile_w
-            )
+            columns = 4
+            last_btn_right = grid_left_x + (columns - 1) * (tile_w + gap_x) + tile_w
             center_x = last_btn_right + (screen_w - last_btn_right) // 2
 
             # Down arrow: its BOTTOM flush with last tile's bottom edge
@@ -223,7 +256,7 @@ def draw_ui(screen, exit_rect, header_text, pressed_button, offset_y=0):
 
             # Up arrow: sits above with 10 px edge-to-edge gap
             up_rect = arrow_up_img.get_rect()
-            up_rect.midbottom = (center_x, down_rect.top - 10)
+            up_rect.midbottom = (center_x, down_rect.top - scale_y(10))
 
             # --- draw ---
             screen.blit(arrow_img, down_rect)

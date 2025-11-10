@@ -90,6 +90,7 @@ HEADER_TEXT_COLOR = "#BCBCBC"
 HEADER_BG_COLOR = "#0B1C34"
 HEADER_LETTER_SPACING = 0
 HEADER_HEIGHT = 60    # height of header bar (pixels)
+HEADER_TEXT_BASELINE_OFFSET = -4  # vertical tweak applied before scaling
 
 # ================== MENU STYLING ==================
 

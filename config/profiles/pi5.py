@@ -4,9 +4,15 @@ SETTINGS = {
     "PLATFORM_ID": "pi5",
     "SCREEN_WIDTH": 1280,
     "SCREEN_HEIGHT": 720,
-    # Slight positive shift to counteract the yellow tint observed on Pi 5 panel.
-    # Downstream code can translate this abstract offset into actual color
-    # corrections. Adjust via forthcoming calibration UI.
-    "COLOR_TEMP_OFFSET": -12,
-    "UI_SCALE": 1.0,
+    # Screen calibration (Lightroom-style temp/tint scale; -100..+100)
+    # Negative temp leans blue, positive leans yellow. Positive tint leans magenta.
+    "COLOR_TEMP": -20,
+    "COLOR_TINT": 30,
+    "COLOR_BRIGHTNESS": 0,
+    "COLOR_BLACKS": 0,
+    "UI_SCALE": 1.55,
+    "UI_SCALE_Y": 1.43,
+    # Use a dedicated remote logging port so the Windows viewer can separate
+    # Pi 5 traffic; ensure the receiver listens on this port.
+    "LOG_REMOTE_PORT": 5052,
 }

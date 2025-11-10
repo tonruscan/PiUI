@@ -1,4 +1,5 @@
 import pygame
+import config as cfg
 
 def draw_debug_grid(screen, grid_geom, grid_zones):
     """
@@ -67,6 +68,12 @@ def draw_debug_grid(screen, grid_geom, grid_zones):
     # ------------------------------------------------------------------
     # Draw zones + internal equal dividers for multi-cell zones
     # ------------------------------------------------------------------
+    try:
+        label_font = cfg.font_helper.load_font(18, weight=getattr(cfg, "DEBUG_GRID_FONT_WEIGHT", "SemiBold"))
+    except Exception:
+        fallback_path = cfg.font_helper.main_font()
+        label_font = pygame.font.Font(fallback_path, 18)
+
     for z in grid_zones:
         zr, zc, zw, zh = z["row"], z["col"], z["w"], z["h"]
         color = z.get("color", (255, 0, 0, 100))
@@ -80,8 +87,7 @@ def draw_debug_grid(screen, grid_geom, grid_zones):
 
 
         # zone label
-        font = pygame.font.SysFont("arial", 18, bold=True)
-        label = font.render(z.get("id", "?"), True, (255, 255, 255))
+        label = label_font.render(z.get("id", "?"), True, (255, 255, 255))
         surf.blit(label, label.get_rect(center=rect.center))
 
         # internal equal dividers (pure fractional splits inside the zone)

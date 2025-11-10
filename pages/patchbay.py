@@ -179,8 +179,9 @@ def draw_ui(screen, exit_rect, header_text, pressed_button=None, offset_y=0):
         return y + offset_y
 
     # --- Fonts ---
-    font_label = pygame.font.SysFont("arial", cfg.PORT_NUMBER_SIZE)   # numbers inside circles
-    font = pygame.font.Font(cfg.font_helper.main_font(), cfg.DIAL_FONT_SIZE)
+    font_weight = getattr(cfg, "PATCHBAY_LABEL_FONT_WEIGHT", "SemiBold")
+    font_label = cfg.font_helper.load_font(cfg.PORT_NUMBER_SIZE, weight=font_weight)
+    font = cfg.font_helper.load_font(cfg.DIAL_FONT_SIZE)
 
     # --- Layout constants (driven by cfg) ---
     layout = get_port_layout(screen.get_width())
@@ -361,11 +362,13 @@ def draw_ui(screen, exit_rect, header_text, pressed_button=None, offset_y=0):
         y = start_y + row * (2 * socket_radius + row_spacing) + y_offset
         row_y_positions.append(y)
 
-    font_b = pygame.font.SysFont(
-        getattr(cfg, "INOUT_LABEL_FONT", "Arial"),
-        getattr(cfg, "INOUT_LABEL_SIZE", 20),
-        bold=getattr(cfg, "INOUT_LABEL_BOLD", True)
-    )
+    try:
+        label_size = int(getattr(cfg, "INOUT_LABEL_SIZE", 20))
+        label_weight = getattr(cfg, "INOUT_LABEL_FONT_WEIGHT", "Bold")
+        font_b = cfg.font_helper.load_font(label_size, weight=label_weight)
+    except Exception:
+        fallback_path = cfg.font_helper.main_font()
+        font_b = pygame.font.Font(fallback_path, int(getattr(cfg, "INOUT_LABEL_SIZE", 20)))
     rotation_left = getattr(cfg, "INOUT_LABEL_ROTATION_LEFT", 90)
     rotation_right = getattr(cfg, "INOUT_LABEL_ROTATION_RIGHT", -90)
     offset_x = getattr(cfg, "INOUT_LABEL_OFFSET_X", 2.8)

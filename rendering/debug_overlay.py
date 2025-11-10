@@ -5,6 +5,11 @@ Displays FPS and queue metrics during development.
 
 import pygame
 
+try:
+    import config as cfg
+except Exception:  # pragma: no cover - overlay should still draw with fallback font
+    cfg = None
+
 
 def draw_overlay(screen, fps: float, queue_size: int, mode: str = "production"):
     """
@@ -16,7 +21,14 @@ def draw_overlay(screen, fps: float, queue_size: int, mode: str = "production"):
         queue_size: Current message queue size
         mode: Active profile mode (production/development/safe)
     """
-    font = pygame.font.Font(None, 24)
+    if cfg is not None:
+        try:
+            font = cfg.font_helper.load_font(24, weight=getattr(cfg, "DEBUG_OVERLAY_FONT_WEIGHT", "Medium"))
+        except Exception:
+            fallback = cfg.font_helper.main_font()
+            font = pygame.font.Font(fallback, 24)
+    else:
+        font = pygame.font.Font(None, 24)
     
     # FPS text
     fps_color = (0, 255, 0) if fps >= 55 else (255, 165, 0) if fps >= 30 else (255, 0, 0)

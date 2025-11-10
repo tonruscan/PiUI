@@ -25,6 +25,7 @@ import showheader
 import dialhandlers
 import navigator
 import devices
+from rendering import color_correction
 
 
 class UIApplication(HardwareMixin, RenderMixin, MessageMixin):

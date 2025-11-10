@@ -709,8 +709,8 @@ class ASCIIAnimatorWidget(DirtyWidgetMixin):
 
         # Draw active state overlay with larger font
         if is_active:
-            # Use a larger font for the asterisk
-            large_font = pygame.font.SysFont("DejaVu Sans Mono", 28, bold=True)
+            # Use bundled monospace font for the asterisk highlight
+            large_font = cfg.font_helper.load_font(28, weight="Bold", family="mono")
             txt = large_font.render("*", True, text_color_active)
             center_x = rect.centerx - txt.get_width() // 2
             center_y = rect.centery - txt.get_height() // 2 + 4 
@@ -826,10 +826,10 @@ class ASCIIAnimatorWidget(DirtyWidgetMixin):
     def _ensure_font(self):
         if self._font is None:
             try:
-                # Monospace is important so the ASCII grid aligns
-                self._font = pygame.font.SysFont("DejaVu Sans Mono", 12, bold=False)
+                self._font = cfg.font_helper.load_font(12, family="mono")
             except Exception:
-                self._font = pygame.font.Font(None, 18)
+                fallback_path = cfg.font_helper.main_font()
+                self._font = pygame.font.Font(fallback_path, 12)
 
     def _layout_text_grid(self, crt: pygame.Rect):
         # Measure a character to infer char cell size

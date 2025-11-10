@@ -41,6 +41,44 @@ SHORT_TAGS = {
 
 
 
+def _get_scale_values():
+    try:
+        scale_x = float(getattr(cfg, "UI_SCALE", 1.0))
+    except Exception:
+        scale_x = 1.0
+    if scale_x <= 0:
+        scale_x = 1.0
+
+    try:
+        scale_y = float(getattr(cfg, "UI_SCALE_Y", scale_x))
+    except Exception:
+        scale_y = scale_x
+    if scale_y <= 0:
+        scale_y = scale_x
+
+    return scale_x, scale_y
+
+
+def _scale_x(value):
+    if value is None:
+        return 0
+    try:
+        scaled = float(value) * _get_scale_values()[0]
+    except Exception:
+        return int(value) if isinstance(value, int) else 0
+    return int(round(scaled))
+
+
+def _scale_y(value):
+    if value is None:
+        return 0
+    try:
+        scaled = float(value) * _get_scale_values()[1]
+    except Exception:
+        return int(value) if isinstance(value, int) else 0
+    return int(round(scaled))
+
+
 # --------- BEGIN add to showlog.py near top (after imports) ----------
 import socket
 import threading
@@ -368,8 +406,12 @@ def _direct_write_file(msg: str):
             line = f"{emoji} {msg_core}"
 
 
-        # timestamp prefix
-        line = f"[{_timestamp()}] {line}"
+        # timestamp + platform prefix
+        platform_tag = getattr(cfg, "PLATFORM_ID", None)
+        if platform_tag:
+            line = f"[{_timestamp()}] [{str(platform_tag).upper()}] {line}"
+        else:
+            line = f"[{_timestamp()}] {line}"
 
         with open(LOG_FILE, "a", encoding="utf-8") as f:
             f.write(line + "\n")
@@ -471,7 +513,8 @@ def _expand_for_file(name: str) -> str:
 
 def init(screen, font_name="Courier", font_size=14):
     global font, screen_ref
-    font = pygame.font.SysFont(font_name, font_size)
+    font_px = max(1, _scale_y(font_size))
+    font = pygame.font.SysFont(font_name, font_px)
     screen_ref = screen
     # Proactively start forwarder so connection attempts are visible early
     if cfg.DEBUG:
@@ -700,8 +743,9 @@ def draw_bar(screen=None, fps_value=None):
     # --- Left: log text ---
     text_color = hex_to_rgb(getattr(cfg, "LOG_TEXT_COLOR", "#FFFFFF"))
     text_surface = font.render(log_text, True, text_color)
-    base_y = screen.get_height() - log_bar_h + 2
-    screen.blit(text_surface, (10, base_y))
+    text_pad_x = _scale_x(10)
+    text_pad_y = _scale_y(2)
+    screen.blit(text_surface, (text_pad_x, rect.top + text_pad_y))
 
     # --- Right: clock + CPU (+ FPS) ---
     clock_str = time.strftime("%H:%M")
@@ -738,8 +782,8 @@ def draw_bar(screen=None, fps_value=None):
 
     overlay_surf = font.render(overlay_text, True, cpu_col)
     overlay_rect = overlay_surf.get_rect()
-    overlay_rect.bottom = rect.bottom - 2
-    overlay_rect.right = rect.right - 10
+    overlay_rect.bottom = rect.bottom - _scale_y(2)
+    overlay_rect.right = rect.right - _scale_x(10)
     screen.blit(overlay_surf, overlay_rect)
 
 
@@ -871,3 +915,11 @@ def eco(message):
     if (not getattr(cfg, "ECO_MODE", False)):
         return
     log_process(f"[ECO] {message}")
+
+
+try:
+    notify_ready = getattr(cfg, "_notify_showlog_ready", None)
+    if callable(notify_ready):
+        notify_ready()
+except Exception:
+    pass

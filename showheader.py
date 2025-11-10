@@ -43,6 +43,60 @@ _cached_header_text = None
 # -------------------------------------------------------
 _context_buttons = []  # Holds buttons shown in the dropdown menu
 
+
+def _get_scale_values():
+    try:
+        scale_x = float(getattr(cfg, "UI_SCALE", 1.0))
+    except Exception:
+        scale_x = 1.0
+    if scale_x <= 0:
+        scale_x = 1.0
+
+    try:
+        scale_y = float(getattr(cfg, "UI_SCALE_Y", scale_x))
+    except Exception:
+        scale_y = scale_x
+    if scale_y <= 0:
+        scale_y = scale_x
+
+    return scale_x, scale_y
+
+
+def _scale_x(value):
+    if value is None:
+        return 0
+    try:
+        scaled = float(value) * _get_scale_values()[0]
+    except Exception:
+        return int(value) if isinstance(value, int) else 0
+    return int(round(scaled))
+
+
+def _scale_y(value):
+    if value is None:
+        return 0
+    try:
+        scaled = float(value) * _get_scale_values()[1]
+    except Exception:
+        return int(value) if isinstance(value, int) else 0
+    return int(round(scaled))
+
+
+def _scale_icon_size(value):
+    _, scale_y = _get_scale_values()
+    factor = scale_y
+    try:
+        if isinstance(value, (list, tuple)) and len(value) >= 2:
+            width = max(1, int(round(float(value[0]) * factor)))
+            height = max(1, int(round(float(value[1]) * factor)))
+            return width, height
+        dim = max(1, int(round(float(value) * factor)))
+        return dim, dim
+    except Exception:
+        dim = max(1, int(round(36 * factor)))
+        return dim, dim
+
+
 def clear_theme_cache():
     """Force reload of theme on next render (call when switching devices/modules)."""
     global _current_theme, _current_device, _cached_header_bg, _cached_header_text
@@ -56,20 +110,52 @@ def set_context_buttons(buttons):
     _context_buttons = buttons or []
 
 
+def _load_header_font(font_size: int):
+    """Load header font from bundled assets, fallback to UI default."""
+    filename = getattr(cfg, "HEADER_FONT_FILE", "Rasegard-Regular.ttf")
+    search_dirs = [
+        os.path.join(getattr(cfg, "BASE_DIR", os.path.dirname(__file__)), "assets", "fonts"),
+        os.path.join(os.path.dirname(__file__), "assets", "fonts"),
+    ]
+
+    for directory in search_dirs:
+        font_path = os.path.join(directory, filename)
+        if os.path.isfile(font_path):
+            try:
+                return pygame.font.Font(font_path, font_size)
+            except Exception as exc:
+                try:
+                    showlog.warn(f"[HEADER] Failed to load {filename}: {exc}")
+                except Exception:
+                    pass
+            break
+
+    fallback_weight = getattr(cfg, "HEADER_FONT_WEIGHT", "UltraBold")
+    return cfg.font_helper.load_font(font_size, weight=fallback_weight)
+
+
 # def hex_to_rgb(value):
 #     value = value.lstrip("#")
 #     return tuple(int(value[i:i+2], 16) for i in (0, 2, 4))
 
-def init(screen, font_name="Rasegard", font_size=40, spacing=None):
+def init(screen, font_name=None, font_size=40, spacing=None):
     """Initialize the header font, load arrow icon, and keep reference to screen."""
     global font, screen_ref, letter_spacing, arrow_img, burger_img, screenshot_img
     
     # Rasegard has no bold variant, so pygame synthesizes it which causes blur
     # Use regular weight to keep text sharp
-    font = pygame.font.SysFont("Rasegard", font_size)
+    font_px = max(1, _scale_y(font_size))
+    if isinstance(font_name, str) and font_name:
+        if os.path.isfile(font_name):
+            font = pygame.font.Font(font_name, font_px)
+        else:
+            font = cfg.font_helper.load_font(font_px, weight=font_name)
+    else:
+        font = _load_header_font(font_px)
     
     screen_ref = screen
-    letter_spacing = cfg.HEADER_LETTER_SPACING if spacing is None else spacing
+    spacing_value = cfg.HEADER_LETTER_SPACING if spacing is None else spacing
+    letter_spacing = _scale_x(spacing_value) if spacing_value else 0
 
     # --- Load and scale the arrow icon using config size ---
     try:
@@ -78,10 +164,7 @@ def init(screen, font_name="Rasegard", font_size=40, spacing=None):
 
         # Use BACK_BUTTON_SIZE from config (tuple or int)
         size = getattr(cfg, "BACK_BUTTON_SIZE", 36)
-        if isinstance(size, (list, tuple)):
-            arrow_img = pygame.transform.smoothscale(img, (int(size[0]), int(size[1])))
-        else:
-            arrow_img = pygame.transform.smoothscale(img, (int(size), int(size)))
+        arrow_img = pygame.transform.smoothscale(img, _scale_icon_size(size))
 
     except Exception as e:
         arrow_img = None
@@ -94,10 +177,7 @@ def init(screen, font_name="Rasegard", font_size=40, spacing=None):
         burger_img_raw = pygame.image.load(burger_path).convert_alpha()
 
         burger_size = getattr(cfg, "BURGER_BUTTON_SIZE", 50)
-        if isinstance(burger_size, (list, tuple)):
-            burger_img = pygame.transform.smoothscale(burger_img_raw, (int(burger_size[0]), int(burger_size[1])))
-        else:
-            burger_img = pygame.transform.smoothscale(burger_img_raw, (int(burger_size), int(burger_size)))
+        burger_img = pygame.transform.smoothscale(burger_img_raw, _scale_icon_size(burger_size))
     except Exception as e:
         burger_img = None
         showlog.log(None, f"[HEADER] Burger icon unavailable: {e}")
@@ -112,19 +192,13 @@ def init(screen, font_name="Rasegard", font_size=40, spacing=None):
         screenshot_img_raw = pygame.image.load(screenshot_path).convert_alpha()
 
         screenshot_size = getattr(cfg, "SCREENSHOT_BUTTON_SIZE", 50)
-        if isinstance(screenshot_size, (list, tuple)):
-            screenshot_img = pygame.transform.smoothscale(screenshot_img_raw, (int(screenshot_size[0]), int(screenshot_size[1])))
-        else:
-            screenshot_img = pygame.transform.smoothscale(screenshot_img_raw, (int(screenshot_size), int(screenshot_size)))
+        screenshot_img = pygame.transform.smoothscale(screenshot_img_raw, _scale_icon_size(screenshot_size))
         showlog.verbose(f"[HEADER] Screenshot icon loaded from {os.path.basename(screenshot_path)}")
     except Exception as e:
         # Create a simple fallback icon if image doesn't exist
         try:
             size = getattr(cfg, "SCREENSHOT_BUTTON_SIZE", 50)
-            if isinstance(size, (list, tuple)):
-                w, h = int(size[0]), int(size[1])
-            else:
-                w = h = int(size)
+            w, h = _scale_icon_size(size)
             
             # Create a simple camera-like icon
             screenshot_img = pygame.Surface((w, h), pygame.SRCALPHA)
@@ -179,7 +253,7 @@ def set_menu_open(is_open: bool):
         menu_h = float(getattr(cfg, "MENU_HEIGHT", 200.00))
     except Exception:
         menu_h = 200.0
-    _target_offset_y = menu_h if is_open else 0.0    # height of your dropdown in px
+    _target_offset_y = float(max(0, _scale_y(menu_h))) if is_open else 0.0    # height of your dropdown in px
 
 
 def update(dt: float = 0.0):
@@ -331,7 +405,8 @@ def show(screen, msg, device_name=None):
             header_text, font, text_rgb, spacing=letter_spacing
         )
 
-    text_rect.center = (screen.get_width() // 2, header_rect.centery - 4)
+    baseline_offset = _scale_y(getattr(cfg, "HEADER_TEXT_BASELINE_OFFSET", -4))
+    text_rect.center = (screen.get_width() // 2, header_rect.centery + baseline_offset)
     
     # DEBUG: Log before blitting
     if device_name:
@@ -342,8 +417,8 @@ def show(screen, msg, device_name=None):
     # --- Back arrow (left) ---
     if arrow_img:
         arrow_rect = arrow_img.get_rect()
-        arrow_rect.left = getattr(cfg, "BACK_BUTTON_LEFT_PAD", 12)
-        arrow_rect.centery = header_rect.centery + getattr(cfg, "BACK_BUTTON_TOP_PAD", -2)
+        arrow_rect.left = _scale_x(getattr(cfg, "BACK_BUTTON_LEFT_PAD", 12))
+        arrow_rect.centery = header_rect.centery + _scale_y(getattr(cfg, "BACK_BUTTON_TOP_PAD", -2))
         screen.blit(arrow_img, arrow_rect)
 
     # --- Screenshot button (between back arrow and burger menu) ---
@@ -352,17 +427,18 @@ def show(screen, msg, device_name=None):
         screenshot_rect = screenshot_img.get_rect()
         # Position to the right of the back arrow with some spacing
         if arrow_rect:
-            screenshot_rect.left = arrow_rect.right + getattr(cfg, "SCREENSHOT_BUTTON_GAP", 16)
+            screenshot_rect.left = arrow_rect.right + _scale_x(getattr(cfg, "SCREENSHOT_BUTTON_GAP", 16))
         else:
-            screenshot_rect.left = getattr(cfg, "BACK_BUTTON_LEFT_PAD", 12) + 50
-        screenshot_rect.centery = header_rect.centery + getattr(cfg, "SCREENSHOT_BUTTON_TOP_PAD", -2)
+            fallback_left = getattr(cfg, "BACK_BUTTON_LEFT_PAD", 12) + 50
+            screenshot_rect.left = _scale_x(fallback_left)
+        screenshot_rect.centery = header_rect.centery + _scale_y(getattr(cfg, "SCREENSHOT_BUTTON_TOP_PAD", -2))
         screen.blit(screenshot_img, screenshot_rect)
 
     # --- Burger menu (right) ---
     if burger_img:
         burger_rect = burger_img.get_rect()
-        burger_rect.right = screen.get_width() - getattr(cfg, "BURGER_BUTTON_RIGHT_PAD", 12)
-        burger_rect.centery = header_rect.centery + getattr(cfg, "BURGER_BUTTON_TOP_PAD", 0)
+        burger_rect.right = screen.get_width() - _scale_x(getattr(cfg, "BURGER_BUTTON_RIGHT_PAD", 12))
+        burger_rect.centery = header_rect.centery + _scale_y(getattr(cfg, "BURGER_BUTTON_TOP_PAD", 0))
         screen.blit(burger_img, burger_rect)
 
     # --- Dropdown (unchanged) ---
@@ -373,29 +449,30 @@ def show(screen, msg, device_name=None):
         pygame.draw.rect(screen, hex_to_rgb(getattr(cfg, "MENU_COLOR", "#1A1A1A")), menu_rect)
 
         if _context_buttons:
-            btn_w = int(getattr(cfg, "MENU_BUTTON_WIDTH", 140))
-            btn_h = int(getattr(cfg, "MENU_BUTTON_HEIGHT", 44))
-            gap = int(getattr(cfg, "MENU_BUTTON_GAP", 12))
-            radius = int(getattr(cfg, "MENU_BUTTON_RADIUS", 10))
-            top_pad = int(getattr(cfg, "MENU_BUTTON_TOP_PAD", 8))
+            btn_w = max(1, _scale_x(getattr(cfg, "MENU_BUTTON_WIDTH", 140)))
+            btn_h = max(1, _scale_y(getattr(cfg, "MENU_BUTTON_HEIGHT", 44)))
+            gap = max(0, _scale_x(getattr(cfg, "MENU_BUTTON_GAP", 12)))
+            radius = max(0, _scale_y(getattr(cfg, "MENU_BUTTON_RADIUS", 10)))
+            top_pad = _scale_y(getattr(cfg, "MENU_BUTTON_TOP_PAD", 8))
 
             btn_color = hex_to_rgb(getattr(cfg, "MENU_BUTTON_COLOR", "#43658E"))
             btn_pressed_color = hex_to_rgb(getattr(cfg, "MENU_BUTTON_PRESSED_COLOR", "#FFFFFF"))
             btn_border_color = hex_to_rgb(getattr(cfg, "MENU_BUTTON_BORDER_COLOR", "#000000"))
-            btn_border_w = int(getattr(cfg, "MENU_BUTTON_BORDER_WIDTH", 0))
+            btn_border_w = max(0, _scale_y(getattr(cfg, "MENU_BUTTON_BORDER_WIDTH", 0)))
 
             font_path = getattr(cfg, "MENU_BUTTON_FONT", getattr(cfg, "MENU_FONT", cfg.font_helper.main_font("UltraBold")))
-            font_size = int(getattr(cfg, "MENU_BUTTON_FONT_SIZE", getattr(cfg, "MENU_FONT_SIZE", 20)))
+            font_size = max(1, _scale_y(getattr(cfg, "MENU_BUTTON_FONT_SIZE", getattr(cfg, "MENU_FONT_SIZE", 20))))
             font_color = hex_to_rgb(getattr(cfg, "MENU_BUTTON_TEXT_COLOR", getattr(cfg, "MENU_FONT_COLOR", "#FFFFFF")))
 
             try:
                 if isinstance(font_path, str) and os.path.isfile(font_path):
                     menu_font = pygame.font.Font(font_path, font_size)
                 else:
-                    menu_font = pygame.font.SysFont(str(font_path), font_size)
+                    weight = font_path if isinstance(font_path, str) else None
+                    menu_font = cfg.font_helper.load_font(font_size, weight=weight)
             except Exception as e:
                 showlog.log(None, f"[HEADER] MENU_FONT fallback ({type(e).__name__}: {e})")
-                menu_font = pygame.font.SysFont(None, font_size)
+                menu_font = cfg.font_helper.load_font(font_size)
 
             total_width = len(_context_buttons) * (btn_w + gap) - gap
             start_x = (screen.get_width() - total_width) // 2
